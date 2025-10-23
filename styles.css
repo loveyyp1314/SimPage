@@ -1,0 +1,214 @@
+:root {
+  color-scheme: light;
+  font-family: "Inter", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  --glass-bg: rgba(255, 255, 255, 0.2);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+  --text-primary: #1f1f1f;
+  --text-secondary: rgba(31, 31, 31, 0.7);
+  --accent-light: rgba(255, 255, 255, 0.72);
+  --accent-muted: rgba(255, 255, 255, 0.55);
+  --card-hover: rgba(255, 255, 255, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(2.5rem, 6vw, 4rem) 1.5rem;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 45%, #d1d5db 100%);
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.ambient {
+  position: fixed;
+  width: clamp(18rem, 35vw, 28rem);
+  height: clamp(18rem, 35vw, 28rem);
+  border-radius: 50%;
+  filter: blur(0px);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+  transform: translate3d(0, 0, 0);
+}
+
+.ambient-a {
+  top: -8rem;
+  right: -6rem;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.95), rgba(209, 213, 219, 0));
+}
+
+.ambient-b {
+  bottom: -10rem;
+  left: -8rem;
+  background: radial-gradient(circle at center, rgba(226, 232, 240, 0.95), rgba(209, 213, 219, 0));
+}
+
+.layout {
+  width: min(1040px, 100%);
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 2.5rem);
+  position: relative;
+  z-index: 1;
+}
+
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 24px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+@supports not ((backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgba(243, 244, 246, 0.93);
+  }
+}
+
+.hero {
+  padding: clamp(2rem, 5vw, 3rem);
+  display: grid;
+  gap: 1.25rem;
+}
+
+.badge {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--accent-muted);
+  color: rgba(31, 31, 31, 0.65);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hero p {
+  margin: 0;
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: clamp(1rem, 3vw, 1.5rem);
+}
+
+.nav-card {
+  position: relative;
+  padding: 1.6rem 1.6rem 1.6rem 1.4rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.2rem;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.nav-card .icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 18px;
+  background: var(--accent-light);
+  display: grid;
+  place-items: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(31, 31, 31, 0.58);
+  letter-spacing: 0.04em;
+}
+
+.nav-card .content h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.nav-card .content p {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.nav-card .arrow {
+  font-size: 1.2rem;
+  color: rgba(31, 31, 31, 0.45);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.nav-card:hover,
+.nav-card:focus-visible {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: translateY(-4px);
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.16);
+}
+
+.nav-card:hover .arrow,
+.nav-card:focus-visible .arrow {
+  transform: translateX(4px);
+  color: var(--text-primary);
+}
+
+.nav-card:focus-visible {
+  outline: 2px solid #94a3b8;
+  outline-offset: 4px;
+}
+
+.footnote {
+  padding: 1.2rem 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 2.5rem 1rem;
+  }
+
+  .nav-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 0.9rem;
+    padding: 1.4rem;
+  }
+
+  .nav-card .icon {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .nav-card .arrow {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 1.8rem;
+    gap: 1rem;
+  }
+
+  .footnote {
+    padding: 1rem 1.3rem;
+  }
+}
