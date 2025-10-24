@@ -42,35 +42,40 @@
       "name": "开源中国",
       "url": "https://www.oschina.net/",
       "description": "聚焦开源信息与技术社区。",
-      "icon": "🌐"
+      "icon": "🌐",
+      "category": "技术社区"
     },
     {
       "id": "bookmark-sspai",
       "name": "少数派",
       "url": "https://sspai.com/",
       "description": "关注效率工具与生活方式的媒体。",
-      "icon": "📰"
+      "icon": "📰",
+      "category": "效率与生活"
     },
     {
       "id": "bookmark-zhihu",
       "name": "知乎",
       "url": "https://www.zhihu.com/",
       "description": "问答与知识分享社区。",
-      "icon": "❓"
+      "icon": "❓",
+      "category": "知识学习"
     },
     {
       "id": "bookmark-jike",
       "name": "即刻",
       "url": "https://m.okjike.com/",
       "description": "兴趣社交与资讯聚合平台。",
-      "icon": "📮"
+      "icon": "📮",
+      "category": "资讯聚合"
     },
     {
       "id": "bookmark-juejin",
       "name": "稀土掘金",
       "url": "https://juejin.cn/",
       "description": "开发者技术社区与优质内容。",
-      "icon": "💡"
+      "icon": "💡",
+      "category": "技术社区"
     }
   ]
 }

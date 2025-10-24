@@ -24,8 +24,11 @@ app.put("/api/data", async (req, res, next) => {
   try {
     const { apps, bookmarks } = req.body || {};
 
-    const normalisedApps = normaliseCollection(apps, "应用");
-    const normalisedBookmarks = normaliseCollection(bookmarks, "书签");
+    const normalisedApps = normaliseCollection(apps, { label: "应用", type: "apps" });
+    const normalisedBookmarks = normaliseCollection(bookmarks, {
+      label: "书签",
+      type: "bookmarks",
+    });
 
     const payload = {
       apps: normalisedApps,
@@ -41,6 +44,10 @@ app.put("/api/data", async (req, res, next) => {
     }
     next(error);
   }
+});
+
+app.get("/admin", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
 app.use(
@@ -95,7 +102,7 @@ async function writeData(data) {
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
-function normaliseCollection(value, label) {
+function normaliseCollection(value, { label, type }) {
   if (!Array.isArray(value)) {
     const error = new Error(`${label} 数据格式不正确，应为数组。`);
     error.expose = true;
@@ -104,7 +111,7 @@ function normaliseCollection(value, label) {
 
   const seen = new Set();
   return value.map((item) => {
-    const normalised = normaliseItem(item);
+    const normalised = normaliseItem(item, type);
     if (seen.has(normalised.id)) {
       normalised.id = randomUUID();
     }
@@ -113,7 +120,7 @@ function normaliseCollection(value, label) {
   });
 }
 
-function normaliseItem(input) {
+function normaliseItem(input, type) {
   if (!input || typeof input !== "object") {
     const error = new Error("数据项格式不正确。");
     error.expose = true;
@@ -124,6 +131,8 @@ function normaliseItem(input) {
   const url = String(input.url || "").trim();
   const description = typeof input.description === "string" ? input.description.trim() : "";
   const icon = typeof input.icon === "string" ? input.icon.trim() : "";
+  const category =
+    type === "bookmarks" && typeof input.category === "string" ? input.category.trim() : "";
 
   if (!name) {
     const error = new Error("名称不能为空。");
@@ -137,13 +146,19 @@ function normaliseItem(input) {
     throw error;
   }
 
-  return {
+  const payload = {
     id: typeof input.id === "string" && input.id.trim() ? input.id.trim() : randomUUID(),
     name,
     url: ensureUrlProtocol(url),
     description,
     icon,
   };
+
+  if (type === "bookmarks") {
+    payload.category = category;
+  }
+
+  return payload;
 }
 
 function ensureUrlProtocol(url) {
@@ -199,6 +214,7 @@ function createDefaultData() {
         url: "https://www.oschina.net/",
         description: "聚焦开源信息与技术社区。",
         icon: "🌐",
+        category: "技术社区",
       },
       {
         id: randomUUID(),
@@ -206,6 +222,7 @@ function createDefaultData() {
         url: "https://sspai.com/",
         description: "关注效率工具与生活方式的媒体。",
         icon: "📰",
+        category: "效率与生活",
       },
       {
         id: randomUUID(),
@@ -213,6 +230,7 @@ function createDefaultData() {
         url: "https://www.zhihu.com/",
         description: "问答与知识分享社区。",
         icon: "❓",
+        category: "知识学习",
       },
       {
         id: randomUUID(),
@@ -220,6 +238,7 @@ function createDefaultData() {
         url: "https://m.okjike.com/",
         description: "兴趣社交与资讯聚合平台。",
         icon: "📮",
+        category: "资讯聚合",
       },
       {
         id: randomUUID(),
@@ -227,6 +246,7 @@ function createDefaultData() {
         url: "https://juejin.cn/",
         description: "开发者技术社区与优质内容。",
         icon: "💡",
+        category: "技术社区",
       },
     ],
   };

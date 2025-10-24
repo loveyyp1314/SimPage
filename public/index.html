@@ -23,20 +23,38 @@
             <span class="weather-label">天气</span>
             <p class="weather-info" id="weather-info">正在获取天气...</p>
           </div>
-          <form class="search-form" action="https://www.google.com/search" method="get">
+          <form class="search-form" id="global-search-form">
             <label for="global-search" class="sr-only">搜索</label>
+            <div class="search-controls">
+              <div class="search-select" data-control="target">
+                <label class="sr-only" for="search-target">搜索范围</label>
+                <select id="search-target" name="target">
+                  <option value="web">网页搜索</option>
+                  <option value="apps">本地应用</option>
+                  <option value="bookmarks">本地书签</option>
+                </select>
+              </div>
+              <div class="search-select" data-control="engine">
+                <label class="sr-only" for="search-engine">搜索引擎</label>
+                <select id="search-engine" name="engine">
+                  <option value="google">Google</option>
+                  <option value="baidu">百度</option>
+                  <option value="bing">Bing</option>
+                </select>
+              </div>
+            </div>
             <div class="search-input">
               <input
                 type="search"
                 id="global-search"
-                name="q"
-                placeholder="搜索网页、文档或更多..."
+                name="query"
+                placeholder="搜索网页、应用或书签..."
                 autocomplete="off"
               />
               <button type="submit">搜索</button>
             </div>
+            <p class="search-feedback" id="local-search-feedback" hidden></p>
           </form>
-          <a class="admin-entry" href="/admin.html">后台编辑</a>
         </div>
       </section>
 
@@ -58,7 +76,7 @@
             <p>固定站点收藏与资源链接。</p>
           </div>
         </div>
-        <div class="grid" id="bookmarks-grid" role="list"></div>
+        <div class="bookmark-collection" id="bookmarks-grid"></div>
         <p class="empty-hint" id="bookmarks-empty" hidden>暂无书签，请前往后台管理进行添加。</p>
       </section>
     </main>
