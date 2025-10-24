@@ -267,7 +267,7 @@ function renderList(type, container, items) {
   if (!container) return;
   container.innerHTML = "";
 
-  if (!items.length) {
+  if (!Array.isArray(items) || !items.length) {
     const hint = document.createElement("p");
     hint.className = "empty-hint";
     hint.textContent =
@@ -276,9 +276,36 @@ function renderList(type, container, items) {
     return;
   }
 
-  items.forEach((item, index) => {
-    container.appendChild(buildSummaryCard(type, item, index));
+  const columns = getTableColumns(type);
+  const wrapper = document.createElement("div");
+  wrapper.className = "admin-table-wrapper";
+
+  const scroller = document.createElement("div");
+  scroller.className = "admin-table-scroll";
+
+  const table = document.createElement("table");
+  table.className = `admin-table admin-table-${type}`;
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  columns.forEach((column) => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = column.label;
+    headerRow.appendChild(th);
   });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  items.forEach((item, index) => {
+    tbody.appendChild(buildTableRow(type, item, index, columns));
+  });
+  table.appendChild(tbody);
+
+  scroller.appendChild(table);
+  wrapper.appendChild(scroller);
+  container.appendChild(wrapper);
 }
 
 function updateCategorySuggestions() {
@@ -300,67 +327,120 @@ function updateCategorySuggestions() {
     });
 }
 
-function buildSummaryCard(type, item, index) {
-  const card = document.createElement("article");
-  card.className = "edit-card summary-card";
-  card.tabIndex = 0;
+function getTableColumns(type) {
+  if (type === "bookmarks") {
+    return [
+      { key: "name", label: "名称" },
+      { key: "category", label: "分类" },
+      { key: "description", label: "描述" },
+      { key: "url", label: "链接" },
+      { key: "actions", label: "操作" },
+    ];
+  }
 
-  const main = document.createElement("div");
-  main.className = "summary-card-main";
+  return [
+    { key: "name", label: "名称" },
+    { key: "description", label: "描述" },
+    { key: "url", label: "链接" },
+    { key: "actions", label: "操作" },
+  ];
+}
+
+function buildTableRow(type, item, index, columns) {
+  const row = document.createElement("tr");
+  row.dataset.clickable = "true";
+  row.tabIndex = 0;
+
+  columns.forEach((column) => {
+    const cell = document.createElement("td");
+    cell.dataset.column = column.key;
+
+    switch (column.key) {
+      case "name": {
+        cell.appendChild(createNameCell(type, item, index));
+        break;
+      }
+      case "category": {
+        const label = typeof item.category === "string" ? item.category.trim() : "";
+        cell.textContent = label || "—";
+        break;
+      }
+      case "description": {
+        const description = typeof item.description === "string" ? item.description.trim() : "";
+        cell.textContent = description || "—";
+        break;
+      }
+      case "url": {
+        const url = typeof item.url === "string" ? item.url.trim() : "";
+        cell.textContent = url || "—";
+        if (url) {
+          cell.title = url;
+        }
+        break;
+      }
+      case "actions": {
+        cell.appendChild(createActionCell(type, index));
+        break;
+      }
+      default: {
+        cell.textContent = "";
+      }
+    }
+
+    row.appendChild(cell);
+  });
+
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    openEditor(type, index);
+  });
+
+  row.addEventListener("keydown", (event) => {
+    if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) {
+      event.preventDefault();
+      openEditor(type, index);
+    }
+  });
+
+  return row;
+}
+
+function createNameCell(type, item, index) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "admin-item";
+
+  const displayName =
+    typeof item.name === "string" && item.name.trim()
+      ? item.name.trim()
+      : `${typeLabels[type]} ${index + 1}`;
 
   const iconWrapper = document.createElement("span");
-  iconWrapper.className = "summary-card-icon";
+  iconWrapper.className = "admin-item-icon";
   const iconContent = String(item.icon || "").trim();
   if (iconContent.startsWith("http://") || iconContent.startsWith("https://") || iconContent.startsWith("data:")) {
     const img = document.createElement("img");
     img.src = iconContent;
-    img.alt = `${item.name || ""} 图标`;
+    img.alt = `${displayName} 图标`;
     iconWrapper.appendChild(img);
   } else if (iconContent) {
     iconWrapper.textContent = iconContent.slice(0, 4);
   } else {
-    iconWrapper.textContent = deriveFallbackIcon(item.name);
+    iconWrapper.textContent = deriveFallbackIcon(displayName);
   }
 
-  const textWrapper = document.createElement("div");
-  textWrapper.className = "summary-card-text";
+  wrapper.appendChild(iconWrapper);
 
-  const titleRow = document.createElement("div");
-  titleRow.className = "summary-card-title";
+  const name = document.createElement("p");
+  name.className = "admin-item-name";
+  name.textContent = displayName;
+  wrapper.appendChild(name);
 
-  const title = document.createElement("h3");
-  title.textContent = item.name || `${typeLabels[type]} ${index + 1}`;
-  titleRow.appendChild(title);
+  return wrapper;
+}
 
-  if (type === "bookmarks" && item.category) {
-    const badge = document.createElement("span");
-    badge.className = "category-badge";
-    badge.textContent = item.category;
-    titleRow.appendChild(badge);
-  }
-
-  textWrapper.appendChild(titleRow);
-
-  if (item.description) {
-    const description = document.createElement("p");
-    description.className = "summary-card-description";
-    description.textContent = item.description;
-    textWrapper.appendChild(description);
-  }
-
-  if (item.url) {
-    const url = document.createElement("p");
-    url.className = "summary-card-meta";
-    url.textContent = item.url;
-    textWrapper.appendChild(url);
-  }
-
-  main.appendChild(iconWrapper);
-  main.appendChild(textWrapper);
-  card.appendChild(main);
-
+function createActionCell(type, index) {
   const actions = document.createElement("div");
-  actions.className = "summary-card-actions";
+  actions.className = "admin-table-actions";
 
   const editButton = document.createElement("button");
   editButton.type = "button";
@@ -382,20 +462,7 @@ function buildSummaryCard(type, item, index) {
 
   actions.appendChild(editButton);
   actions.appendChild(deleteButton);
-  card.appendChild(actions);
-
-  card.addEventListener("click", () => {
-    openEditor(type, index);
-  });
-
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      openEditor(type, index);
-    }
-  });
-
-  return card;
+  return actions;
 }
 
 function deriveFallbackIcon(name) {
@@ -906,11 +973,18 @@ async function handlePasswordSubmit(event) {
     const response = await fetch(PASSWORD_ENDPOINT, {
       method: "POST",
       headers: buildAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ currentPassword: currentValue, newPassword: newValue }),
+      body: JSON.stringify({ currentPassword: trimmedCurrent, newPassword: newValue }),
     });
 
     if (response.status === 401) {
-      handleUnauthorized("登录已过期，请重新登录后再修改密码。");
+      const message = await extractErrorMessage(response);
+      if (message && message.includes("当前密码")) {
+        setPasswordMessage(message, "error");
+        setStatus(message, "error");
+        focusCurrentInput = true;
+        return;
+      }
+      handleUnauthorized(message || "登录已过期，请重新登录后再修改密码。");
       return;
     }
 
