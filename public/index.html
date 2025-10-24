@@ -31,18 +31,88 @@
               <div class="search-select" data-control="target">
                 <label class="sr-only" for="search-target">搜索范围</label>
                 <select id="search-target" name="target">
-                  <option value="web">网页搜索</option>
-                  <option value="apps">本地应用</option>
-                  <option value="bookmarks">本地书签</option>
+                  <option value="web">搜索</option>
+                  <option value="apps">应用</option>
+                  <option value="bookmarks">书签</option>
                 </select>
               </div>
               <div class="search-select" data-control="engine">
-                <label class="sr-only" for="search-engine">搜索引擎</label>
-                <select id="search-engine" name="engine">
-                  <option value="google">Google</option>
-                  <option value="baidu">百度</option>
-                  <option value="bing">Bing</option>
-                </select>
+                <span class="sr-only" id="search-engine-label">搜索引擎</span>
+                <input type="hidden" id="search-engine" name="engine" value="google" />
+                <div
+                  class="search-engine-toggle"
+                  role="group"
+                  aria-labelledby="search-engine-label"
+                >
+                  <button
+                    type="button"
+                    class="search-engine-button is-active"
+                    data-engine-option="google"
+                    aria-pressed="true"
+                    id="search-engine-google"
+                    tabindex="0"
+                  >
+                    <span class="engine-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path
+                          fill="#4285F4"
+                          d="M23.49 12.27c0-.78-.07-1.53-.2-2.27H12v4.3h6.48c-.28 1.5-1.13 2.77-2.4 3.62v3h3.87c2.26-2.08 3.54-5.14 3.54-8.65z"
+                        ></path>
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.87-3c-1.07.72-2.45 1.16-4.08 1.16-3.14 0-5.8-2.12-6.75-4.98H1.26v3.13C3.24 21.19 7.3 24 12 24z"
+                        ></path>
+                        <path
+                          fill="#FBBC04"
+                          d="M5.25 14.27c-.24-.72-.38-1.5-.38-2.27s.14-1.56.38-2.27V6.6H1.26C.46 8.2 0 9.99 0 12c0 2.01.46 3.8 1.26 5.4l3.99-3.13z"
+                        ></path>
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.76 0 3.34.6 4.58 1.78l3.43-3.43C17.95 1.13 15.24 0 12 0 7.3 0 3.24 2.81 1.26 6.6l3.99 3.13C6.2 6.87 8.86 4.75 12 4.75z"
+                        ></path>
+                      </svg>
+                    </span>
+                    <span class="sr-only">Google</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="search-engine-button"
+                    data-engine-option="baidu"
+                    aria-pressed="false"
+                    id="search-engine-baidu"
+                    tabindex="-1"
+                  >
+                    <span class="engine-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <circle cx="6.5" cy="7" r="3" fill="#3A7AFE"></circle>
+                        <circle cx="12" cy="5.5" r="3" fill="#3A7AFE"></circle>
+                        <circle cx="17.5" cy="7" r="3" fill="#3A7AFE"></circle>
+                        <path
+                          fill="#3A7AFE"
+                          d="M12 10.5c-3.6 0-6.1 2.32-6.1 4.93 0 2.2 1.75 3.67 4.32 3.67.92 0 1.7-.22 1.78-.24.08.02.86.24 1.78.24 2.57 0 4.32-1.47 4.32-3.67 0-2.61-2.5-4.93-6.1-4.93z"
+                        ></path>
+                        <circle cx="8.9" cy="18" r="1.2" fill="#FF4D4F"></circle>
+                        <circle cx="15.1" cy="18" r="1.2" fill="#FF4D4F"></circle>
+                      </svg>
+                    </span>
+                    <span class="sr-only">百度</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="search-engine-button"
+                    data-engine-option="bing"
+                    aria-pressed="false"
+                    id="search-engine-bing"
+                    tabindex="-1"
+                  >
+                    <span class="engine-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path fill="#008373" d="M4 2l5 2v13.09L15.67 19 19 16.67l-4.34-2.1V6.07L4 2z"></path>
+                      </svg>
+                    </span>
+                    <span class="sr-only">Bing</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div class="search-input">
@@ -60,28 +130,77 @@
         </div>
       </section>
 
-      <section class="grid-section glass" aria-labelledby="apps-title">
-        <div class="section-header">
+      <section class="grid-section glass" aria-labelledby="collections-title">
+        <div class="section-header section-header-with-toggle">
           <div>
-            <h2 id="apps-title">应用</h2>
-            <p>常用在线应用的快捷入口。</p>
+            <h2 id="collections-title">资源</h2>
+            <p>常用在线应用与收藏站点。</p>
+          </div>
+          <div
+            class="collection-toggle"
+            id="collection-toggle"
+            role="tablist"
+            aria-label="资源分类切换"
+          >
+            <button
+              type="button"
+              class="collection-toggle-button is-active"
+              role="tab"
+              id="apps-tab"
+              data-view="apps"
+              aria-controls="apps-panel"
+              aria-selected="true"
+              tabindex="0"
+            >
+              应用
+            </button>
+            <button
+              type="button"
+              class="collection-toggle-button"
+              role="tab"
+              id="bookmarks-tab"
+              data-view="bookmarks"
+              aria-controls="bookmarks-panel"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              书签
+            </button>
           </div>
         </div>
-        <div class="grid" id="apps-grid" role="list"></div>
-        <p class="empty-hint" id="apps-empty" hidden>暂无应用，请前往后台管理进行添加。</p>
-      </section>
-
-      <section class="grid-section glass" aria-labelledby="bookmarks-title">
-        <div class="section-header">
-          <div>
-            <h2 id="bookmarks-title">书签</h2>
-            <p>固定站点收藏与资源链接。</p>
+        <div class="collection-panels">
+          <div
+            class="collection-panel is-active"
+            id="apps-panel"
+            role="tabpanel"
+            aria-labelledby="apps-tab"
+          >
+            <div class="grid" id="apps-grid" role="list"></div>
+            <p class="empty-hint" id="apps-empty" hidden>
+              暂无应用，请前往后台管理进行添加。
+            </p>
+          </div>
+          <div
+            class="collection-panel"
+            id="bookmarks-panel"
+            role="tabpanel"
+            aria-labelledby="bookmarks-tab"
+            hidden
+          >
+            <div class="bookmark-collection" id="bookmarks-grid"></div>
+            <p class="empty-hint" id="bookmarks-empty" hidden>
+              暂无书签，请前往后台管理进行添加。
+            </p>
           </div>
         </div>
-        <div class="bookmark-collection" id="bookmarks-grid"></div>
-        <p class="empty-hint" id="bookmarks-empty" hidden>暂无书签，请前往后台管理进行添加。</p>
       </section>
     </main>
+
+    <footer class="site-footer glass" id="site-footer" hidden>
+      <div class="site-footer-inner">
+        <div class="site-footer-content" id="site-footer-content"></div>
+      </div>
+    </footer>
 
     <button type="button" class="back-to-top" id="back-to-top" aria-label="回到顶部" hidden>
       ⌃

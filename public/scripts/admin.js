@@ -1,3 +1,5 @@
+import { renderMarkdown } from "./markdown.js";
+
 const appsEditor = document.getElementById("apps-editor");
 const bookmarksEditor = document.getElementById("bookmarks-editor");
 const addButtons = document.querySelectorAll(".add-button");
@@ -20,6 +22,8 @@ const modalOverlay = document.getElementById("editor-modal-overlay");
 const siteNameInput = document.getElementById("site-name");
 const siteLogoInput = document.getElementById("site-logo");
 const siteGreetingInput = document.getElementById("site-greeting");
+const siteFooterInput = document.getElementById("site-footer-content");
+const siteFooterPreview = document.getElementById("site-footer-preview");
 const categorySuggestions = document.getElementById("category-suggestions");
 const authOverlay = document.getElementById("auth-overlay");
 const loginForm = document.getElementById("login-form");
@@ -55,6 +59,7 @@ const defaultSettings = {
   siteName: siteNameInput && siteNameInput.value.trim() ? siteNameInput.value.trim() : "导航中心",
   siteLogo: siteLogoInput && siteLogoInput.value.trim() ? siteLogoInput.value.trim() : "",
   greeting: siteGreetingInput && siteGreetingInput.value.trim() ? siteGreetingInput.value.trim() : "",
+  footer: siteFooterInput && siteFooterInput.value ? normaliseFooterValue(siteFooterInput.value) : "",
 };
 
 const state = {
@@ -64,6 +69,7 @@ const state = {
     siteName: defaultSettings.siteName,
     siteLogo: defaultSettings.siteLogo,
     greeting: defaultSettings.greeting,
+    footer: defaultSettings.footer,
   },
 };
 
@@ -122,11 +128,20 @@ function normaliseIncoming(collection, type) {
   }));
 }
 
+function normaliseFooterValue(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const normalised = value.replace(/\r\n?/g, "\n");
+  return normalised.trim() ? normalised : "";
+}
+
 function normaliseSettingsIncoming(input) {
   const prepared = {
     siteName: defaultSettings.siteName,
     siteLogo: defaultSettings.siteLogo,
     greeting: defaultSettings.greeting,
+    footer: defaultSettings.footer,
   };
 
   if (!input || typeof input !== "object") {
@@ -142,20 +157,40 @@ function normaliseSettingsIncoming(input) {
   if (typeof input.greeting === "string") {
     prepared.greeting = input.greeting.trim();
   }
+  if (typeof input.footer === "string") {
+    prepared.footer = normaliseFooterValue(input.footer);
+  }
 
   return prepared;
+}
+
+function updateFooterPreview(content) {
+  if (!siteFooterPreview) return;
+  const clean = normaliseFooterValue(content);
+  if (!clean) {
+    siteFooterPreview.innerHTML = "<span class=\"footer-preview-empty\">暂无内容</span>";
+    return;
+  }
+  siteFooterPreview.innerHTML = renderMarkdown(clean);
 }
 
 function applySettingsToInputs(settings) {
   if (siteNameInput) siteNameInput.value = settings.siteName || "";
   if (siteLogoInput) siteLogoInput.value = settings.siteLogo || "";
   if (siteGreetingInput) siteGreetingInput.value = settings.greeting || "";
+  if (siteFooterInput) siteFooterInput.value = settings.footer || "";
+  updateFooterPreview(settings.footer);
   updatePageIdentity(settings);
 }
 
 function handleSettingsChange(field, value) {
   if (!state.settings) return;
-  state.settings[field] = value;
+  let nextValue = value;
+  if (field === "footer") {
+    nextValue = normaliseFooterValue(value);
+    updateFooterPreview(nextValue);
+  }
+  state.settings[field] = nextValue;
   updatePageIdentity(state.settings);
   markDirty();
   setStatus("站点信息已更新，记得保存。", "neutral");
@@ -607,6 +642,7 @@ function buildSettingsPayload(settings) {
     siteName: (settings.siteName || "").trim(),
     siteLogo: (settings.siteLogo || "").trim(),
     greeting: (settings.greeting || "").trim(),
+    footer: normaliseFooterValue(settings.footer),
   };
 }
 
@@ -1054,6 +1090,12 @@ function bindEvents() {
   if (siteGreetingInput) {
     siteGreetingInput.addEventListener("input", () => {
       handleSettingsChange("greeting", siteGreetingInput.value);
+    });
+  }
+
+  if (siteFooterInput) {
+    siteFooterInput.addEventListener("input", () => {
+      handleSettingsChange("footer", siteFooterInput.value);
     });
   }
 

@@ -1,3 +1,5 @@
+import { renderMarkdown } from "./markdown.js";
+
 const siteNameElement = document.getElementById("site-name");
 const timeElement = document.getElementById("current-time");
 const dateElement = document.getElementById("current-date");
@@ -7,14 +9,30 @@ const appsGrid = document.getElementById("apps-grid");
 const bookmarksGrid = document.getElementById("bookmarks-grid");
 const appsEmpty = document.getElementById("apps-empty");
 const bookmarksEmpty = document.getElementById("bookmarks-empty");
+const appsPanel = document.getElementById("apps-panel");
+const bookmarksPanel = document.getElementById("bookmarks-panel");
+const collectionToggle = document.getElementById("collection-toggle");
+const collectionToggleButtons = collectionToggle
+  ? Array.from(collectionToggle.querySelectorAll(".collection-toggle-button"))
+  : [];
 const searchForm = document.getElementById("global-search-form");
 const searchInput = document.getElementById("global-search");
 const searchTargetSelect = document.getElementById("search-target");
-const searchEngineSelect = document.getElementById("search-engine");
+const searchEngineInput = document.getElementById("search-engine");
 const searchEngineWrapper = document.querySelector('.search-select[data-control="engine"]');
+const searchEngineButtons = searchEngineWrapper
+  ? Array.from(searchEngineWrapper.querySelectorAll(".search-engine-button"))
+  : [];
 const searchFeedback = document.getElementById("local-search-feedback");
 const backToTopButton = document.getElementById("back-to-top");
+const footerElement = document.getElementById("site-footer");
+const footerContentElement = document.getElementById("site-footer-content");
 const faviconLink = document.getElementById("site-favicon");
+
+const collectionPanels = {
+  apps: appsPanel,
+  bookmarks: bookmarksPanel,
+};
 
 const defaultDocumentTitle = document.title || "导航中心";
 const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "导航中心";
@@ -22,6 +40,7 @@ const DEFAULT_SITE_SETTINGS = {
   siteName: defaultSiteName,
   siteLogo: "",
   greeting: "",
+  footer: "",
 };
 
 const defaultFaviconHref = faviconLink?.getAttribute("href") || "data:,";
@@ -58,12 +77,64 @@ const originalData = {
 };
 
 let currentSearchTarget = "web";
+let activeCollection = "apps";
 
 const searchEngineBuilders = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
   baidu: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
   bing: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
 };
+
+function normaliseFooterValue(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const normalised = value.replace(/\r\n?/g, "\n");
+  return normalised.trim() ? normalised : "";
+}
+
+function setSearchEngine(engine) {
+  if (!searchEngineInput) return;
+  const resolved = Object.prototype.hasOwnProperty.call(searchEngineBuilders, engine)
+    ? engine
+    : "google";
+  searchEngineInput.value = resolved;
+  searchEngineButtons.forEach((button) => {
+    const isActive = button.dataset.engineOption === resolved;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    const tabIndex = searchEngineInput.disabled ? "-1" : isActive ? "0" : "-1";
+    button.setAttribute("tabindex", tabIndex);
+  });
+}
+
+function moveSearchEngineSelection(offset) {
+  if (!searchEngineButtons.length || searchEngineInput?.disabled) {
+    return;
+  }
+  const enabledButtons = searchEngineButtons.filter((button) => !button.disabled);
+  if (!enabledButtons.length) {
+    return;
+  }
+  const currentValue = searchEngineInput?.value || "google";
+  let currentIndex = enabledButtons.findIndex(
+    (button) => button.dataset.engineOption === currentValue
+  );
+  if (currentIndex < 0) {
+    currentIndex = 0;
+  }
+  const nextIndex = (currentIndex + offset + enabledButtons.length) % enabledButtons.length;
+  const nextButton = enabledButtons[nextIndex];
+  if (!nextButton) {
+    return;
+  }
+  const nextValue = nextButton.dataset.engineOption;
+  if (!nextValue) {
+    return;
+  }
+  setSearchEngine(nextValue);
+  nextButton.focus();
+}
 
 function updateClock() {
   const now = new Date();
@@ -143,6 +214,9 @@ function prepareSiteSettings(settings) {
   if (typeof settings.greeting === "string") {
     prepared.greeting = settings.greeting.trim();
   }
+  if (typeof settings.footer === "string") {
+    prepared.footer = normaliseFooterValue(settings.footer);
+  }
   return prepared;
 }
 
@@ -156,6 +230,7 @@ function applySiteSettings(settings) {
   updateDocumentTitle(prepared.siteName);
   updateFavicon(prepared.siteLogo, prepared.siteName);
   updateGreetingDisplay();
+  updateFooter(prepared.footer);
 }
 
 function updateDocumentTitle(siteName) {
@@ -199,6 +274,18 @@ function updateFavicon(rawValue, siteName) {
   }
   faviconLink.removeAttribute("type");
   faviconLink.removeAttribute("sizes");
+}
+
+function updateFooter(rawContent) {
+  if (!footerElement || !footerContentElement) return;
+  const clean = normaliseFooterValue(rawContent);
+  if (!clean) {
+    footerElement.hidden = true;
+    footerContentElement.innerHTML = "";
+    return;
+  }
+  footerContentElement.innerHTML = renderMarkdown(clean);
+  footerElement.hidden = false;
 }
 
 function deriveFaviconSymbol(siteName) {
@@ -245,6 +332,35 @@ function createEmojiFavicon(symbolValue) {
 
 function isLogoUrl(value) {
   return /^https?:\/\//i.test(value) || value.startsWith("data:");
+}
+
+function showCollection(view, { focusTab = false } = {}) {
+  if (view !== "apps" && view !== "bookmarks") {
+    return;
+  }
+  activeCollection = view;
+
+  collectionToggleButtons.forEach((button) => {
+    const target = button.dataset.view;
+    const isActive = target === view;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.setAttribute("tabindex", isActive ? "0" : "-1");
+    if (isActive && focusTab) {
+      button.focus();
+    }
+  });
+
+  Object.entries(collectionPanels).forEach(([key, panel]) => {
+    if (!panel) return;
+    const isActive = key === view;
+    panel.classList.toggle("is-active", isActive);
+    if (isActive) {
+      panel.removeAttribute("hidden");
+    } else {
+      panel.setAttribute("hidden", "");
+    }
+  });
 }
 
 function renderApps(items, options = {}) {
@@ -403,11 +519,17 @@ function normalizeUrl(url) {
 }
 
 function performLocalSearch(target, query) {
+  if (target !== "apps" && target !== "bookmarks") {
+    return;
+  }
   const trimmed = query.trim();
   if (!trimmed) {
+    showCollection(target);
     clearLocalSearchResults();
     return;
   }
+
+  showCollection(target);
 
   const dataset = target === "apps" ? originalData.apps : originalData.bookmarks;
   const keywords = trimmed.toLowerCase();
@@ -437,6 +559,7 @@ function clearLocalSearchResults() {
   renderApps(originalData.apps);
   renderBookmarks(originalData.bookmarks);
   hideLocalSearchFeedback();
+  showCollection(activeCollection);
 }
 
 function updateLocalSearchFeedback(count, target, query) {
@@ -471,7 +594,7 @@ function handleSearchSubmit(event) {
   }
 
   if (target === "web") {
-    const engineKey = searchEngineSelect ? searchEngineSelect.value : "google";
+    const engineKey = searchEngineInput ? searchEngineInput.value : "google";
     const builder = searchEngineBuilders[engineKey] || searchEngineBuilders.google;
     const url = builder(query);
     window.open(url, "_blank", "noopener");
@@ -490,8 +613,16 @@ function updateSearchControls() {
   if (searchEngineWrapper) {
     searchEngineWrapper.hidden = !isWebSearch;
   }
-  if (searchEngineSelect) {
-    searchEngineSelect.disabled = !isWebSearch;
+  if (searchEngineInput) {
+    searchEngineInput.disabled = !isWebSearch;
+  }
+  if (searchEngineButtons.length) {
+    searchEngineButtons.forEach((button) => {
+      button.disabled = !isWebSearch;
+    });
+  }
+  if (searchEngineInput) {
+    setSearchEngine(searchEngineInput.value || "google");
   }
 
   const hasChanged = currentSearchTarget !== nextTarget;
@@ -506,12 +637,14 @@ function updateSearchControls() {
     return;
   }
 
+  showCollection(nextTarget);
+
   if (!searchInput) return;
 
-  if (hasChanged) {
+  if (searchInput.value.trim()) {
     performLocalSearch(nextTarget, searchInput.value);
-  } else if (searchInput.value.trim()) {
-    performLocalSearch(nextTarget, searchInput.value);
+  } else if (hasChanged) {
+    clearLocalSearchResults();
   }
 }
 
@@ -626,6 +759,11 @@ function handleBackToTopVisibility() {
 function initialise() {
   updateDocumentTitle(DEFAULT_SITE_SETTINGS.siteName);
   updateFavicon(DEFAULT_SITE_SETTINGS.siteLogo, DEFAULT_SITE_SETTINGS.siteName);
+  updateFooter(DEFAULT_SITE_SETTINGS.footer);
+  showCollection(activeCollection);
+  if (searchEngineInput) {
+    setSearchEngine(searchEngineInput.value || "google");
+  }
   updateClock();
   setInterval(updateClock, 60_000);
   loadData();
@@ -638,11 +776,65 @@ function initialise() {
     handleBackToTopVisibility();
     window.addEventListener("scroll", handleBackToTopVisibility, { passive: true });
   }
+  if (collectionToggleButtons.length) {
+    collectionToggleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const view = button.dataset.view;
+        if (!view) return;
+        showCollection(view);
+        if (searchTargetSelect && searchTargetSelect.value !== view) {
+          searchTargetSelect.value = view;
+        }
+        updateSearchControls();
+      });
+      button.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+          return;
+        }
+        event.preventDefault();
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const currentIndex = collectionToggleButtons.indexOf(button);
+        const nextIndex =
+          (currentIndex + offset + collectionToggleButtons.length) % collectionToggleButtons.length;
+        const nextButton = collectionToggleButtons[nextIndex];
+        if (!nextButton) return;
+        const view = nextButton.dataset.view;
+        if (!view) return;
+        showCollection(view, { focusTab: true });
+        if (searchTargetSelect && searchTargetSelect.value !== view) {
+          searchTargetSelect.value = view;
+        }
+        updateSearchControls();
+      });
+    });
+  }
   if (searchForm) {
     searchForm.addEventListener("submit", handleSearchSubmit);
   }
   if (searchTargetSelect) {
     searchTargetSelect.addEventListener("change", updateSearchControls);
+  }
+  if (searchEngineButtons.length) {
+    searchEngineButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled || searchEngineInput?.disabled) {
+          return;
+        }
+        const value = button.dataset.engineOption;
+        if (value) {
+          setSearchEngine(value);
+        }
+      });
+      button.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+          event.preventDefault();
+          moveSearchEngineSelection(1);
+        } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+          event.preventDefault();
+          moveSearchEngineSelection(-1);
+        }
+      });
+    });
   }
   if (searchInput) {
     searchInput.addEventListener("input", () => {
