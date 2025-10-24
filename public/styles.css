@@ -111,6 +111,42 @@ body.admin-body {
   align-content: start;
 }
 
+.site-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.site-logo {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(31, 31, 31, 0.75);
+  overflow: hidden;
+}
+
+.site-logo.has-image {
+  background: transparent;
+}
+
+.site-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.site-name {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-weight: 600;
+}
+
 .badge {
   align-self: flex-start;
   font-size: 0.78rem;
@@ -397,6 +433,14 @@ body.admin-body {
   gap: 1.5rem;
 }
 
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .admin-header h1 {
   margin: 0.4rem 0 0;
   font-size: clamp(1.6rem, 4vw, 2rem);
@@ -430,6 +474,22 @@ body.admin-body {
   padding: clamp(1.6rem, 3.8vw, 2.2rem);
   display: grid;
   gap: 1.2rem;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.field-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .field-span-2 {
+    grid-column: span 1;
+  }
 }
 
 .admin-section-header {
@@ -703,6 +763,64 @@ body.admin-body {
   cursor: not-allowed;
   opacity: 0.6;
   box-shadow: none;
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  overflow: auto;
+}
+
+.auth-overlay[hidden] {
+  display: none;
+}
+
+.auth-card {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 1.2rem;
+  padding: 2.1rem 2.4rem;
+  border-radius: 24px;
+  box-shadow: 0 32px 68px rgba(15, 23, 42, 0.2);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.auth-card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.auth-card .primary-button {
+  width: 100%;
+}
+
+.auth-description {
+  margin: 0;
+  color: rgba(31, 41, 55, 0.7);
+  font-size: 0.95rem;
+}
+
+.auth-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(31, 41, 55, 0.6);
+}
+
+.form-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--danger);
 }
 
 .modal {

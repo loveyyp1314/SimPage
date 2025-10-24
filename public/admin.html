@@ -17,8 +17,39 @@
           <h1>导航数据编辑</h1>
           <p>管理导航页中的应用与书签数据，保存后即可在前台即时生效。</p>
         </div>
-        <a class="admin-return" href="/">返回导航页</a>
+        <div class="admin-header-actions">
+          <a class="admin-return" href="/">返回导航页</a>
+          <button type="button" class="ghost-button" id="logout-button" disabled>退出登录</button>
+        </div>
       </header>
+
+      <section class="admin-section glass" aria-labelledby="site-settings-title">
+        <div class="section-header admin-section-header">
+          <div>
+            <h2 id="site-settings-title">站点信息</h2>
+            <p>配置导航页的名称、Logo 以及问候语。</p>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <div class="field">
+            <span>网站名称</span>
+            <input type="text" id="site-name" autocomplete="off" placeholder="例如：团队导航中心" />
+          </div>
+          <div class="field">
+            <span>网站 Logo（支持 Emoji 或图片 URL）</span>
+            <input type="text" id="site-logo" autocomplete="off" placeholder="例如：🚀 或 https://..." />
+          </div>
+          <div class="field field-span-2">
+            <span>自定义问候语</span>
+            <input
+              type="text"
+              id="site-greeting"
+              autocomplete="off"
+              placeholder="例如：祝你今天心情愉快！"
+            />
+          </div>
+        </div>
+      </section>
 
       <section class="admin-section glass" aria-labelledby="apps-editor-title">
         <div class="section-header admin-section-header">
@@ -51,6 +82,8 @@
       </section>
     </main>
 
+    <datalist id="category-suggestions"></datalist>
+
     <div class="modal" id="editor-modal" hidden aria-hidden="true">
       <div class="modal-overlay" id="editor-modal-overlay" aria-hidden="true"></div>
       <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-modal-title">
@@ -82,7 +115,13 @@
             </div>
             <div class="field" id="editor-category-field" hidden>
               <span>子分类</span>
-              <input type="text" id="editor-category" autocomplete="off" placeholder="例如：效率工具" />
+              <input
+                type="text"
+                id="editor-category"
+                list="category-suggestions"
+                autocomplete="off"
+                placeholder="例如：效率工具"
+              />
             </div>
             <p class="modal-error" id="editor-error" role="alert"></p>
           </div>
@@ -92,6 +131,26 @@
           </footer>
         </form>
       </div>
+    </div>
+
+    <div class="auth-overlay" id="auth-overlay">
+      <form class="auth-card glass" id="login-form" aria-labelledby="login-title">
+        <h2 id="login-title">后台登录</h2>
+        <p class="auth-description">请输入后台密码以继续。</p>
+        <p class="form-error" id="login-error" role="alert" hidden></p>
+        <div class="field">
+          <span>密码</span>
+          <input
+            type="password"
+            id="login-password"
+            autocomplete="current-password"
+            placeholder="请输入后台密码"
+            required
+          />
+        </div>
+        <button type="submit" class="primary-button">登录</button>
+        <p class="auth-hint">首次使用默认密码：admin123</p>
+      </form>
     </div>
   </body>
 </html>

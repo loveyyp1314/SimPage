@@ -1,3 +1,5 @@
+const siteNameElement = document.getElementById("site-name");
+const siteLogoElement = document.getElementById("site-logo");
 const timeElement = document.getElementById("current-time");
 const dateElement = document.getElementById("current-date");
 const greetingElement = document.getElementById("greeting-text");
@@ -12,6 +14,18 @@ const searchTargetSelect = document.getElementById("search-target");
 const searchEngineSelect = document.getElementById("search-engine");
 const searchEngineWrapper = document.querySelector('.search-select[data-control="engine"]');
 const searchFeedback = document.getElementById("local-search-feedback");
+
+const defaultSiteName = siteNameElement && siteNameElement.textContent
+  ? siteNameElement.textContent.trim() || "导航中心"
+  : "导航中心";
+const defaultDocumentTitle = document.title || defaultSiteName;
+const DEFAULT_SITE_SETTINGS = {
+  siteName: defaultSiteName,
+  siteLogo: "",
+  greeting: "",
+};
+
+let customGreeting = "";
 
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -55,9 +69,7 @@ function updateClock() {
   if (dateElement) {
     dateElement.textContent = dateFormatter.format(now);
   }
-  if (greetingElement) {
-    greetingElement.textContent = getGreeting(now.getHours());
-  }
+  updateGreetingDisplay(now.getHours());
 }
 
 function getGreeting(hour) {
@@ -70,6 +82,11 @@ function getGreeting(hour) {
   return "夜深了，注意休息";
 }
 
+function updateGreetingDisplay(hour = new Date().getHours()) {
+  if (!greetingElement) return;
+  greetingElement.textContent = customGreeting || getGreeting(hour);
+}
+
 async function loadData() {
   try {
     const response = await fetch("/api/data");
@@ -77,8 +94,12 @@ async function loadData() {
       throw new Error("数据拉取失败");
     }
     const payload = await response.json();
-    originalData.apps = prepareCollection(payload.apps, "apps");
-    originalData.bookmarks = prepareCollection(payload.bookmarks, "bookmarks");
+    const data = payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
+
+    applySiteSettings(data?.settings);
+
+    originalData.apps = prepareCollection(data?.apps, "apps");
+    originalData.bookmarks = prepareCollection(data?.bookmarks, "bookmarks");
     renderApps(originalData.apps);
     renderBookmarks(originalData.bookmarks);
     hideLocalSearchFeedback();
@@ -102,6 +123,65 @@ function prepareCollection(collection, type) {
       ? { category: typeof item.category === "string" ? item.category : "" }
       : {}),
   }));
+}
+
+function prepareSiteSettings(settings) {
+  const prepared = { ...DEFAULT_SITE_SETTINGS };
+  if (!settings || typeof settings !== "object") {
+    return prepared;
+  }
+  if (typeof settings.siteName === "string" && settings.siteName.trim()) {
+    prepared.siteName = settings.siteName.trim();
+  }
+  if (typeof settings.siteLogo === "string") {
+    prepared.siteLogo = settings.siteLogo.trim();
+  }
+  if (typeof settings.greeting === "string") {
+    prepared.greeting = settings.greeting.trim();
+  }
+  return prepared;
+}
+
+function applySiteSettings(settings) {
+  const prepared = prepareSiteSettings(settings);
+  customGreeting = prepared.greeting;
+
+  if (siteNameElement) {
+    siteNameElement.textContent = prepared.siteName;
+  }
+  document.title = prepared.siteName || defaultDocumentTitle;
+  renderSiteLogo(prepared.siteLogo);
+  updateGreetingDisplay();
+}
+
+function renderSiteLogo(value) {
+  if (!siteLogoElement) return;
+  while (siteLogoElement.firstChild) {
+    siteLogoElement.removeChild(siteLogoElement.firstChild);
+  }
+  siteLogoElement.textContent = "";
+  siteLogoElement.classList.remove("has-image");
+  const clean = typeof value === "string" ? value.trim() : "";
+  if (!clean) {
+    siteLogoElement.hidden = true;
+    return;
+  }
+
+  siteLogoElement.hidden = false;
+  if (isLogoUrl(clean)) {
+    const img = document.createElement("img");
+    img.src = clean;
+    img.alt = "";
+    img.decoding = "async";
+    siteLogoElement.classList.add("has-image");
+    siteLogoElement.appendChild(img);
+  } else {
+    siteLogoElement.textContent = clean.slice(0, 4);
+  }
+}
+
+function isLogoUrl(value) {
+  return /^https?:\/\//i.test(value) || value.startsWith("data:");
 }
 
 function renderApps(items, options = {}) {

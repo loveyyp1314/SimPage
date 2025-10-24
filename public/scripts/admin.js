@@ -17,17 +17,42 @@ const modalCategoryInput = document.getElementById("editor-category");
 const modalCancelButton = document.getElementById("editor-cancel-button");
 const modalCloseButton = document.getElementById("editor-close-button");
 const modalOverlay = document.getElementById("editor-modal-overlay");
+const siteNameInput = document.getElementById("site-name");
+const siteLogoInput = document.getElementById("site-logo");
+const siteGreetingInput = document.getElementById("site-greeting");
+const categorySuggestions = document.getElementById("category-suggestions");
+const authOverlay = document.getElementById("auth-overlay");
+const loginForm = document.getElementById("login-form");
+const loginPasswordInput = document.getElementById("login-password");
+const loginError = document.getElementById("login-error");
+const logoutButton = document.getElementById("logout-button");
 
 const typeLabels = {
   apps: "应用",
   bookmarks: "书签",
 };
 
+const STORAGE_KEY = "modern-navigation-admin-token";
+const DATA_ENDPOINT = "/api/admin/data";
+const LOGIN_ENDPOINT = "/api/login";
+
+const defaultSettings = {
+  siteName: siteNameInput && siteNameInput.value.trim() ? siteNameInput.value.trim() : "导航中心",
+  siteLogo: siteLogoInput && siteLogoInput.value.trim() ? siteLogoInput.value.trim() : "",
+  greeting: siteGreetingInput && siteGreetingInput.value.trim() ? siteGreetingInput.value.trim() : "",
+};
+
 const state = {
   apps: [],
   bookmarks: [],
+  settings: {
+    siteName: defaultSettings.siteName,
+    siteLogo: defaultSettings.siteLogo,
+    greeting: defaultSettings.greeting,
+  },
 };
 
+let authToken = "";
 let isDirty = false;
 let modalContext = null;
 
@@ -82,9 +107,47 @@ function normaliseIncoming(collection, type) {
   }));
 }
 
+function normaliseSettingsIncoming(input) {
+  const prepared = {
+    siteName: defaultSettings.siteName,
+    siteLogo: defaultSettings.siteLogo,
+    greeting: defaultSettings.greeting,
+  };
+
+  if (!input || typeof input !== "object") {
+    return prepared;
+  }
+
+  if (typeof input.siteName === "string" && input.siteName.trim()) {
+    prepared.siteName = input.siteName.trim();
+  }
+  if (typeof input.siteLogo === "string") {
+    prepared.siteLogo = input.siteLogo.trim();
+  }
+  if (typeof input.greeting === "string") {
+    prepared.greeting = input.greeting.trim();
+  }
+
+  return prepared;
+}
+
+function applySettingsToInputs(settings) {
+  if (siteNameInput) siteNameInput.value = settings.siteName || "";
+  if (siteLogoInput) siteLogoInput.value = settings.siteLogo || "";
+  if (siteGreetingInput) siteGreetingInput.value = settings.greeting || "";
+}
+
+function handleSettingsChange(field, value) {
+  if (!state.settings) return;
+  state.settings[field] = value;
+  markDirty();
+  setStatus("站点信息已更新，记得保存。", "neutral");
+}
+
 function render() {
   renderList("apps", appsEditor, state.apps);
   renderList("bookmarks", bookmarksEditor, state.bookmarks);
+  updateCategorySuggestions();
 }
 
 function renderList(type, container, items) {
@@ -103,6 +166,25 @@ function renderList(type, container, items) {
   items.forEach((item, index) => {
     container.appendChild(buildSummaryCard(type, item, index));
   });
+}
+
+function updateCategorySuggestions() {
+  if (!categorySuggestions) return;
+  categorySuggestions.innerHTML = "";
+  const categories = new Set();
+  state.bookmarks.forEach((item) => {
+    const label = typeof item.category === "string" ? item.category.trim() : "";
+    if (label) {
+      categories.add(label);
+    }
+  });
+  Array.from(categories)
+    .sort((a, b) => a.localeCompare(b, "zh-CN"))
+    .forEach((label) => {
+      const option = document.createElement("option");
+      option.value = label;
+      categorySuggestions.appendChild(option);
+    });
 }
 
 function buildSummaryCard(type, item, index) {
@@ -326,7 +408,7 @@ function applyModalChanges(event) {
 
   render();
   markDirty();
-  setStatus(`${typeLabels[type]}已${isNew ? "添加" : "更新"}，记得保存。`, "neutral");
+  setStatus(`${typeLabels[type]}已${modalContext.isNew ? "添加" : "更新"}，记得保存。`, "neutral");
   closeEditor();
 }
 
@@ -340,31 +422,83 @@ function handleDelete(type, index) {
   setStatus(`${typeLabels[type]}已删除，记得保存修改。`, "neutral");
 }
 
+function buildSettingsPayload(settings) {
+  return {
+    siteName: (settings.siteName || "").trim(),
+    siteLogo: (settings.siteLogo || "").trim(),
+    greeting: (settings.greeting || "").trim(),
+  };
+}
+
+function updateStateFromResponse(data) {
+  state.apps = normaliseIncoming(data?.apps, "apps");
+  state.bookmarks = normaliseIncoming(data?.bookmarks, "bookmarks");
+  state.settings = normaliseSettingsIncoming(data?.settings);
+  applySettingsToInputs(state.settings);
+  render();
+  resetDirty();
+}
+
+function buildAuthHeaders(extra = {}) {
+  if (!authToken) {
+    return { ...extra };
+  }
+  return {
+    ...extra,
+    Authorization: `Bearer ${authToken}`,
+  };
+}
+
 async function loadData(showStatus = true) {
+  if (!authToken) return false;
   try {
-    const response = await fetch("/api/data");
+    const response = await fetch(DATA_ENDPOINT, {
+      headers: buildAuthHeaders(),
+    });
+
+    if (response.status === 401) {
+      handleUnauthorized("登录已过期，请重新登录。");
+      return false;
+    }
+
     if (!response.ok) {
       throw new Error("加载数据失败");
     }
-    const data = await response.json();
-    state.apps = normaliseIncoming(data.apps, "apps");
-    state.bookmarks = normaliseIncoming(data.bookmarks, "bookmarks");
-    render();
-    resetDirty();
+
+    const payload = await response.json();
+    const data = payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
+
+    updateStateFromResponse(data);
+    hideAuthOverlay();
+    if (logoutButton) logoutButton.disabled = false;
     if (showStatus) {
       setStatus("数据已加载。", "neutral");
     }
+    return true;
   } catch (error) {
-    console.error(error);
+    console.error("加载数据失败", error);
     setStatus(error.message || "无法加载数据", "error");
+    return false;
   }
 }
 
 async function saveChanges() {
   if (!saveButton) return;
+  if (!authToken) {
+    setStatus("请登录后再保存。", "error");
+    return;
+  }
 
   saveButton.disabled = true;
   setStatus("正在保存修改...", "neutral");
+
+  const payloadSettings = buildSettingsPayload(state.settings);
+  if (!payloadSettings.siteName) {
+    setStatus("请填写网站名称。", "error");
+    saveButton.disabled = false;
+    if (siteNameInput) siteNameInput.focus();
+    return;
+  }
 
   const payload = {
     apps: state.apps.map((item) => ({
@@ -382,36 +516,194 @@ async function saveChanges() {
       icon: item.icon,
       category: item.category || "",
     })),
+    settings: payloadSettings,
   };
 
   try {
-    const response = await fetch("/api/data", {
+    const response = await fetch(DATA_ENDPOINT, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: buildAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
 
+    if (response.status === 401) {
+      handleUnauthorized("登录已过期，请重新登录。");
+      return;
+    }
+
     if (!response.ok) {
-      const message = await response.text();
+      const message = await extractErrorMessage(response);
       throw new Error(message || "保存失败");
     }
 
     const result = await response.json();
-    if (!result || !result.success) {
-      throw new Error(result?.message || "保存失败");
-    }
+    const data = result && typeof result === "object" && "data" in result ? result.data : result;
 
-    state.apps = normaliseIncoming(result.data.apps, "apps");
-    state.bookmarks = normaliseIncoming(result.data.bookmarks, "bookmarks");
-    render();
-    resetDirty();
+    updateStateFromResponse(data);
     setStatus("保存成功！", "success");
   } catch (error) {
     console.error("保存失败", error);
     setStatus(error.message || "保存失败，请稍后再试。", "error");
-    saveButton.disabled = false;
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+async function extractErrorMessage(response) {
+  try {
+    const data = await response.json();
+    if (data && typeof data === "object" && "message" in data) {
+      return data.message;
+    }
+  } catch (_error) {
+    // ignore
+  }
+  return response.statusText;
+}
+
+function loadStoredToken() {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) || "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+function saveToken(token) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, token);
+  } catch (_error) {
+    // ignore storage errors
+  }
+}
+
+function clearStoredToken() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch (_error) {
+    // ignore storage errors
+  }
+}
+
+function handleUnauthorized(message) {
+  clearStoredToken();
+  authToken = "";
+  state.apps = [];
+  state.bookmarks = [];
+  state.settings = normaliseSettingsIncoming(null);
+  applySettingsToInputs(state.settings);
+  render();
+  resetDirty();
+  showAuthOverlay();
+  setStatus(message || "登录状态已失效，请重新登录。", "error");
+  if (logoutButton) logoutButton.disabled = true;
+}
+
+function handleLogout() {
+  if (!authToken) {
+    showAuthOverlay();
+    setStatus("已退出登录。", "neutral");
+    return;
+  }
+  authToken = "";
+  clearStoredToken();
+  state.apps = [];
+  state.bookmarks = [];
+  state.settings = normaliseSettingsIncoming(null);
+  applySettingsToInputs(state.settings);
+  render();
+  resetDirty();
+  showAuthOverlay();
+  setStatus("已退出登录。", "neutral");
+  if (logoutButton) logoutButton.disabled = true;
+}
+
+function showAuthOverlay() {
+  if (!authOverlay) return;
+  authOverlay.hidden = false;
+  setLoginError("");
+  if (loginPasswordInput) {
+    loginPasswordInput.disabled = false;
+    loginPasswordInput.value = "";
+    setTimeout(() => {
+      loginPasswordInput.focus();
+    }, 0);
+  }
+  if (logoutButton) logoutButton.disabled = true;
+}
+
+function hideAuthOverlay() {
+  if (!authOverlay) return;
+  authOverlay.hidden = true;
+  setLoginError("");
+  if (loginPasswordInput) {
+    loginPasswordInput.value = "";
+    loginPasswordInput.disabled = false;
+  }
+}
+
+function setLoginError(message) {
+  if (!loginError) return;
+  if (message) {
+    loginError.textContent = message;
+    loginError.hidden = false;
+  } else {
+    loginError.textContent = "";
+    loginError.hidden = true;
+  }
+}
+
+async function performLogin(password) {
+  const response = await fetch(LOGIN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+
+  if (!response.ok) {
+    const message = await extractErrorMessage(response);
+    throw new Error(message || "登录失败");
+  }
+
+  const result = await response.json();
+  if (!result || !result.success || !result.token) {
+    throw new Error(result?.message || "登录失败");
+  }
+
+  authToken = result.token;
+  saveToken(authToken);
+  const success = await loadData(false);
+  if (!success) {
+    throw new Error("数据加载失败，请重试。");
+  }
+  setStatus("登录成功，数据已加载。", "success");
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  if (!loginPasswordInput) return;
+
+  const password = loginPasswordInput.value.trim();
+  if (!password) {
+    setLoginError("请输入密码。");
+    loginPasswordInput.focus();
+    return;
+  }
+
+  setLoginError("");
+  const submitButton = loginForm ? loginForm.querySelector('button[type="submit"]') : null;
+  if (submitButton) submitButton.disabled = true;
+  loginPasswordInput.disabled = true;
+
+  try {
+    await performLogin(password);
+    loginPasswordInput.value = "";
+  } catch (error) {
+    console.error("登录失败", error);
+    setLoginError(error.message || "登录失败，请重试。");
+    loginPasswordInput.focus();
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+    loginPasswordInput.disabled = false;
   }
 }
 
@@ -434,8 +726,28 @@ function bindEvents() {
         const confirmed = window.confirm("确定要放弃未保存的修改吗？");
         if (!confirmed) return;
       }
-      await loadData(false);
-      setStatus("已恢复为最新数据。", "neutral");
+      const restored = await loadData(false);
+      if (restored) {
+        setStatus("已恢复为最新数据。", "neutral");
+      }
+    });
+  }
+
+  if (siteNameInput) {
+    siteNameInput.addEventListener("input", () => {
+      handleSettingsChange("siteName", siteNameInput.value);
+    });
+  }
+
+  if (siteLogoInput) {
+    siteLogoInput.addEventListener("input", () => {
+      handleSettingsChange("siteLogo", siteLogoInput.value);
+    });
+  }
+
+  if (siteGreetingInput) {
+    siteGreetingInput.addEventListener("input", () => {
+      handleSettingsChange("greeting", siteGreetingInput.value);
     });
   }
 
@@ -467,11 +779,36 @@ function bindEvents() {
       closeEditor();
     }
   });
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLoginSubmit);
+  }
+
+  if (logoutButton) {
+    logoutButton.addEventListener("click", handleLogout);
+  }
 }
 
-function initialise() {
+async function initialise() {
   bindEvents();
-  loadData();
+  applySettingsToInputs(state.settings);
+  render();
+  resetDirty();
+
+  const storedToken = loadStoredToken();
+  if (storedToken) {
+    authToken = storedToken;
+    setStatus("正在验证登录状态...", "neutral");
+    const success = await loadData(false);
+    if (!success) {
+      showAuthOverlay();
+    } else {
+      setStatus("数据已加载。", "neutral");
+    }
+  } else {
+    showAuthOverlay();
+    setStatus("请登录后开始编辑。", "neutral");
+  }
 }
 
 if (document.readyState === "loading") {
