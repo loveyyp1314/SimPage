@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>导航后台编辑</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="scripts/admin.js" defer></script>
+  </head>
+  <body class="admin-body">
+    <div class="ambient ambient-a" aria-hidden="true"></div>
+    <div class="ambient ambient-b" aria-hidden="true"></div>
+    <main class="layout admin-layout">
+      <header class="admin-header glass">
+        <div>
+          <span class="badge">后台管理</span>
+          <h1>导航数据编辑</h1>
+          <p>管理导航页中的应用与书签数据，保存后即可在前台即时生效。</p>
+        </div>
+        <a class="admin-return" href="/">返回导航页</a>
+      </header>
+
+      <section class="admin-section glass" aria-labelledby="apps-editor-title">
+        <div class="section-header admin-section-header">
+          <div>
+            <h2 id="apps-editor-title">应用</h2>
+            <p>常用在线应用的快捷入口。</p>
+          </div>
+          <button type="button" class="add-button" data-target="apps">+ 添加应用</button>
+        </div>
+        <div class="edit-list" id="apps-editor"></div>
+      </section>
+
+      <section class="admin-section glass" aria-labelledby="bookmarks-editor-title">
+        <div class="section-header admin-section-header">
+          <div>
+            <h2 id="bookmarks-editor-title">书签</h2>
+            <p>收藏的站点与资源链接。</p>
+          </div>
+          <button type="button" class="add-button" data-target="bookmarks">+ 添加书签</button>
+        </div>
+        <div class="edit-list" id="bookmarks-editor"></div>
+      </section>
+
+      <section class="admin-actions glass">
+        <div class="status" id="status-bar" role="status">等待操作</div>
+        <div class="action-buttons">
+          <button type="button" class="ghost-button" id="reload-button">放弃更改</button>
+          <button type="button" class="primary-button" id="save-button" disabled>保存修改</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
