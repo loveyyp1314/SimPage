@@ -1,4 +1,9 @@
 {
+  "settings": {
+    "siteName": "导航中心",
+    "siteLogo": "",
+    "greeting": ""
+  },
   "apps": [
     {
       "id": "app-figma",
@@ -77,5 +82,9 @@
       "icon": "💡",
       "category": "技术社区"
     }
-  ]
+  ],
+  "admin": {
+    "passwordHash": "1a968cba0c9a05b2b235aa54a29bc91ef30a5a8a202dc290cf862070e14e259fad87c94f6f33ce1b2b36a75b233ef282b1298ca12fc96894a3abf38ff9e75b8a",
+    "passwordSalt": "fc87045b067a37f3cb01105a91b55b10"
+  }
 }
