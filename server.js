@@ -79,6 +79,7 @@ app.get("/api/admin/data", requireAuth, async (_req, res, next) => {
 
 app.put("/api/admin/data", requireAuth, handleDataUpdate);
 app.put("/api/data", requireAuth, handleDataUpdate);
+app.post("/api/admin/password", requireAuth, handlePasswordUpdate);
 
 app.get("/admin", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
@@ -311,6 +312,72 @@ async function handleDataUpdate(req, res, next) {
       res.status(400).json({ success: false, message: error.message });
       return;
     }
+    next(error);
+  }
+}
+
+async function handlePasswordUpdate(req, res, next) {
+  try {
+    const currentPassword =
+      typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
+    const newPasswordRaw = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+
+    if (!currentPassword) {
+      res.status(400).json({ success: false, message: "请输入当前密码。" });
+      return;
+    }
+
+    const cleanNewPassword = newPasswordRaw.trim();
+    if (!cleanNewPassword) {
+      res.status(400).json({ success: false, message: "新密码不能为空。" });
+      return;
+    }
+
+    if (cleanNewPassword.length < 6) {
+      res.status(400).json({ success: false, message: "新密码长度至少为 6 位。" });
+      return;
+    }
+
+    const fullData = await readFullData();
+    const admin = fullData.admin;
+    if (!admin || !admin.passwordHash || !admin.passwordSalt) {
+      res.status(500).json({ success: false, message: "密码修改功能暂不可用，请稍后再试。" });
+      return;
+    }
+
+    const storedBuffer = Buffer.from(admin.passwordHash, "hex");
+    const currentHashBuffer = Buffer.from(hashPassword(currentPassword, admin.passwordSalt), "hex");
+
+    const isMatch =
+      storedBuffer.length === currentHashBuffer.length &&
+      timingSafeEqual(storedBuffer, currentHashBuffer);
+
+    if (!isMatch) {
+      res.status(401).json({ success: false, message: "当前密码不正确。" });
+      return;
+    }
+
+    const newHashWithExistingSalt = hashPassword(cleanNewPassword, admin.passwordSalt);
+    const newHashBuffer = Buffer.from(newHashWithExistingSalt, "hex");
+
+    if (storedBuffer.length === newHashBuffer.length && timingSafeEqual(storedBuffer, newHashBuffer)) {
+      res.status(400).json({ success: false, message: "新密码不能与当前密码相同。" });
+      return;
+    }
+
+    const passwordSalt = generateSalt();
+    const passwordHash = hashPassword(cleanNewPassword, passwordSalt);
+
+    const updatedData = {
+      settings: fullData.settings,
+      apps: fullData.apps,
+      bookmarks: fullData.bookmarks,
+      admin: { passwordHash, passwordSalt },
+    };
+
+    await writeFullData(updatedData);
+    res.json({ success: true, message: "密码已更新，下次登录请使用新密码。" });
+  } catch (error) {
     next(error);
   }
 }

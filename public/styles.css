@@ -322,7 +322,7 @@ body.admin-body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: clamp(1rem, 2.5vw, 1.6rem);
   align-items: stretch;
 }
@@ -420,6 +420,50 @@ body.admin-body {
   color: var(--text-secondary);
 }
 
+.back-to-top {
+  position: fixed;
+  bottom: clamp(1.4rem, 4vw, 2.4rem);
+  right: clamp(1.2rem, 4vw, 2.4rem);
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 24px 48px rgba(59, 130, 246, 0.25);
+  z-index: 1500;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.back-to-top:hover,
+.back-to-top:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 54px rgba(59, 130, 246, 0.3);
+  outline: none;
+}
+
+.back-to-top:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.24), 0 28px 54px rgba(59, 130, 246, 0.3);
+}
+
+.back-to-top[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .back-to-top {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.2rem;
+  }
+}
+
 /* Admin page */
 .admin-layout {
   gap: clamp(1.4rem, 3vw, 2rem);
@@ -480,6 +524,47 @@ body.admin-body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+.password-form {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.password-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .password-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.password-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.password-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.password-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.password-message[data-variant="error"] {
+  color: var(--danger);
+}
+
+.password-message[data-variant="success"] {
+  color: var(--success);
 }
 
 .field-span-2 {
