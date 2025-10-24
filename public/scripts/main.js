@@ -6,6 +6,12 @@ const appsGrid = document.getElementById("apps-grid");
 const bookmarksGrid = document.getElementById("bookmarks-grid");
 const appsEmpty = document.getElementById("apps-empty");
 const bookmarksEmpty = document.getElementById("bookmarks-empty");
+const searchForm = document.getElementById("global-search-form");
+const searchInput = document.getElementById("global-search");
+const searchTargetSelect = document.getElementById("search-target");
+const searchEngineSelect = document.getElementById("search-engine");
+const searchEngineWrapper = document.querySelector('.search-select[data-control="engine"]');
+const searchFeedback = document.getElementById("local-search-feedback");
 
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -23,6 +29,22 @@ const defaultLocation = {
   latitude: 39.9042,
   longitude: 116.4074,
   label: "北京",
+};
+
+const appsEmptyDefault = appsEmpty ? appsEmpty.textContent : "";
+const bookmarksEmptyDefault = bookmarksEmpty ? bookmarksEmpty.textContent : "";
+
+const originalData = {
+  apps: [],
+  bookmarks: [],
+};
+
+let currentSearchTarget = "web";
+
+const searchEngineBuilders = {
+  google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+  baidu: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
+  bing: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
 };
 
 function updateClock() {
@@ -55,37 +77,128 @@ async function loadData() {
       throw new Error("数据拉取失败");
     }
     const payload = await response.json();
-    const apps = Array.isArray(payload.apps) ? payload.apps : [];
-    const bookmarks = Array.isArray(payload.bookmarks) ? payload.bookmarks : [];
-    renderCollection(appsGrid, appsEmpty, apps);
-    renderCollection(bookmarksGrid, bookmarksEmpty, bookmarks);
+    originalData.apps = prepareCollection(payload.apps, "apps");
+    originalData.bookmarks = prepareCollection(payload.bookmarks, "bookmarks");
+    renderApps(originalData.apps);
+    renderBookmarks(originalData.bookmarks);
+    hideLocalSearchFeedback();
   } catch (error) {
     console.error("加载数据失败", error);
-    if (appsEmpty) {
-      appsEmpty.hidden = false;
-      appsEmpty.textContent = "加载应用数据失败，请稍后重试。";
-    }
-    if (bookmarksEmpty) {
-      bookmarksEmpty.hidden = false;
-      bookmarksEmpty.textContent = "加载书签数据失败，请稍后重试。";
-    }
+    renderApps([], { emptyMessage: "加载应用数据失败，请稍后重试。" });
+    renderBookmarks([], { emptyMessage: "加载书签数据失败，请稍后重试。" });
+    hideLocalSearchFeedback();
   }
 }
 
-function renderCollection(container, emptyHint, items) {
+function prepareCollection(collection, type) {
+  if (!Array.isArray(collection)) return [];
+  return collection.map((item) => ({
+    id: typeof item.id === "string" ? item.id : "",
+    name: typeof item.name === "string" ? item.name : "",
+    url: typeof item.url === "string" ? item.url : "",
+    description: typeof item.description === "string" ? item.description : "",
+    icon: typeof item.icon === "string" ? item.icon : "",
+    ...(type === "bookmarks"
+      ? { category: typeof item.category === "string" ? item.category : "" }
+      : {}),
+  }));
+}
+
+function renderApps(items, options = {}) {
+  renderTileGrid(appsGrid, appsEmpty, items, {
+    emptyMessage: options.emptyMessage,
+    defaultMessage: appsEmptyDefault,
+  });
+}
+
+function renderTileGrid(container, emptyHint, items, { emptyMessage, defaultMessage } = {}) {
   if (!container || !emptyHint) return;
+
   container.innerHTML = "";
 
-  if (!items.length) {
+  if (!Array.isArray(items) || !items.length) {
     emptyHint.hidden = false;
+    if (emptyMessage) {
+      emptyHint.textContent = emptyMessage;
+    } else if (typeof defaultMessage === "string") {
+      emptyHint.textContent = defaultMessage;
+    }
     return;
   }
 
   emptyHint.hidden = true;
-
   for (const item of items) {
     container.appendChild(createTile(item));
   }
+}
+
+function renderBookmarks(items, options = {}) {
+  if (!bookmarksGrid || !bookmarksEmpty) return;
+
+  bookmarksGrid.innerHTML = "";
+
+  if (!Array.isArray(items) || !items.length) {
+    bookmarksEmpty.hidden = false;
+    if (options.emptyMessage) {
+      bookmarksEmpty.textContent = options.emptyMessage;
+    } else {
+      bookmarksEmpty.textContent = bookmarksEmptyDefault;
+    }
+    return;
+  }
+
+  bookmarksEmpty.hidden = true;
+  const groups = groupBookmarksByCategory(items);
+
+  groups.forEach((group) => {
+    const groupElement = document.createElement("section");
+    groupElement.className = "bookmark-group";
+
+    const shouldShowTitle = !group.isUncategorised || groups.length > 1;
+    if (shouldShowTitle) {
+      const title = document.createElement("h3");
+      title.className = "bookmark-group-title";
+      title.textContent = group.label;
+      groupElement.appendChild(title);
+    }
+
+    const list = document.createElement("div");
+    list.className = "grid";
+    list.setAttribute("role", "list");
+
+    group.items.forEach((item) => {
+      list.appendChild(createTile(item));
+    });
+
+    groupElement.appendChild(list);
+    bookmarksGrid.appendChild(groupElement);
+  });
+}
+
+function groupBookmarksByCategory(items) {
+  const groups = [];
+  const map = new Map();
+
+  items.forEach((item) => {
+    const rawLabel = typeof item.category === "string" ? item.category.trim() : "";
+    const key = rawLabel.toLowerCase() || "__uncategorised__";
+    let group = map.get(key);
+
+    if (!group) {
+      group = {
+        key,
+        label: rawLabel || "未分类",
+        items: [],
+        isUncategorised: !rawLabel,
+      };
+      map.set(key, group);
+      groups.push(group);
+    }
+
+    group.items.push(item);
+  });
+
+  return groups;
 }
 
 function createTile(item) {
@@ -128,11 +241,6 @@ function createTile(item) {
     link.appendChild(description);
   }
 
-  const meta = document.createElement("div");
-  meta.className = "tile-meta";
-  meta.textContent = extractDomain(item.url);
-  link.appendChild(meta);
-
   return link;
 }
 
@@ -142,15 +250,6 @@ function deriveFallbackIcon(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() : "★";
 }
 
-function extractDomain(url) {
-  try {
-    const parsed = new URL(normalizeUrl(url));
-    return parsed.hostname.replace(/^www\./, "");
-  } catch (error) {
-    return url || "";
-  }
-}
-
 function normalizeUrl(url) {
   if (!url) return "#";
   const trimmed = String(url).trim();
@@ -158,6 +257,119 @@ function normalizeUrl(url) {
     return trimmed;
   }
   return `https://${trimmed}`;
+}
+
+function performLocalSearch(target, query) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    clearLocalSearchResults();
+    return;
+  }
+
+  const dataset = target === "apps" ? originalData.apps : originalData.bookmarks;
+  const keywords = trimmed.toLowerCase();
+
+  const matches = dataset.filter((item) => {
+    const pack = [item.name, item.description];
+    if (target === "bookmarks") {
+      pack.push(item.category);
+    }
+    return pack
+      .filter((value) => typeof value === "string" && value)
+      .some((value) => value.toLowerCase().includes(keywords));
+  });
+
+  if (target === "apps") {
+    renderApps(matches, { emptyMessage: `未找到与「${trimmed}」匹配的应用。` });
+    renderBookmarks(originalData.bookmarks);
+  } else {
+    renderApps(originalData.apps);
+    renderBookmarks(matches, { emptyMessage: `未找到与「${trimmed}」匹配的书签。` });
+  }
+
+  updateLocalSearchFeedback(matches.length, target, trimmed);
+}
+
+function clearLocalSearchResults() {
+  renderApps(originalData.apps);
+  renderBookmarks(originalData.bookmarks);
+  hideLocalSearchFeedback();
+}
+
+function updateLocalSearchFeedback(count, target, query) {
+  if (!searchFeedback) return;
+  const label = target === "apps" ? "应用" : "书签";
+  const message = count
+    ? `共找到 ${count} 条${label}结果，关键词：${query}`
+    : `未找到与「${query}」匹配的${label}。`;
+  searchFeedback.textContent = message;
+  searchFeedback.hidden = false;
+}
+
+function hideLocalSearchFeedback() {
+  if (!searchFeedback) return;
+  searchFeedback.hidden = true;
+  searchFeedback.textContent = "";
+}
+
+function handleSearchSubmit(event) {
+  if (!searchForm || !searchTargetSelect || !searchInput) return;
+  event.preventDefault();
+
+  const query = searchInput.value.trim();
+  const target = searchTargetSelect.value;
+
+  if (!query) {
+    if (target === "web") {
+      return;
+    }
+    clearLocalSearchResults();
+    return;
+  }
+
+  if (target === "web") {
+    const engineKey = searchEngineSelect ? searchEngineSelect.value : "google";
+    const builder = searchEngineBuilders[engineKey] || searchEngineBuilders.google;
+    const url = builder(query);
+    window.open(url, "_blank", "noopener");
+    hideLocalSearchFeedback();
+    return;
+  }
+
+  performLocalSearch(target, query);
+}
+
+function updateSearchControls() {
+  if (!searchTargetSelect) return;
+  const nextTarget = searchTargetSelect.value;
+  const isWebSearch = nextTarget === "web";
+
+  if (searchEngineWrapper) {
+    searchEngineWrapper.hidden = !isWebSearch;
+  }
+  if (searchEngineSelect) {
+    searchEngineSelect.disabled = !isWebSearch;
+  }
+
+  const hasChanged = currentSearchTarget !== nextTarget;
+  currentSearchTarget = nextTarget;
+
+  if (isWebSearch) {
+    if (hasChanged) {
+      clearLocalSearchResults();
+    } else {
+      hideLocalSearchFeedback();
+    }
+    return;
+  }
+
+  if (!searchInput) return;
+
+  if (hasChanged) {
+    performLocalSearch(nextTarget, searchInput.value);
+  } else if (searchInput.value.trim()) {
+    performLocalSearch(nextTarget, searchInput.value);
+  }
 }
 
 function loadWeather() {
@@ -253,6 +465,20 @@ function initialise() {
   setInterval(updateClock, 60_000);
   loadData();
   loadWeather();
+  if (searchForm) {
+    searchForm.addEventListener("submit", handleSearchSubmit);
+  }
+  if (searchTargetSelect) {
+    searchTargetSelect.addEventListener("change", updateSearchControls);
+  }
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      if (currentSearchTarget !== "web") {
+        performLocalSearch(currentSearchTarget, searchInput.value);
+      }
+    });
+  }
+  updateSearchControls();
 }
 
 if (document.readyState === "loading") {
