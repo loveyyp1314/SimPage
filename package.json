@@ -1,0 +1,14 @@
+{
+  "name": "modern-navigation",
+  "version": "1.0.0",
+  "description": "现代化导航页，支持后台编辑与文件数据存储",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
