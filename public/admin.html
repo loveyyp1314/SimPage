@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>导航后台编辑</title>
+    <link rel="icon" id="site-favicon" href="data:," />
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="scripts/admin.js" defer></script>
   </head>
@@ -51,6 +52,54 @@
         </div>
       </section>
 
+      <section class="admin-section glass" aria-labelledby="password-settings-title">
+        <div class="section-header admin-section-header">
+          <div>
+            <h2 id="password-settings-title">密码管理</h2>
+            <p>修改后台登录密码，确保账户安全。</p>
+          </div>
+        </div>
+        <form class="password-form" id="password-form" autocomplete="off">
+          <div class="password-grid">
+            <div class="field">
+              <span>当前密码</span>
+              <input
+                type="password"
+                id="current-password"
+                autocomplete="current-password"
+                placeholder="请输入当前密码"
+                required
+              />
+            </div>
+            <div class="field">
+              <span>新密码</span>
+              <input
+                type="password"
+                id="new-password"
+                autocomplete="new-password"
+                placeholder="请输入新密码（至少 6 位）"
+                required
+              />
+            </div>
+            <div class="field">
+              <span>确认新密码</span>
+              <input
+                type="password"
+                id="confirm-password"
+                autocomplete="new-password"
+                placeholder="请再次输入新密码"
+                required
+              />
+            </div>
+          </div>
+          <p class="password-hint">首次使用默认密码：admin123。修改密码后请妥善保存。</p>
+          <p class="password-message" id="password-message" role="status" aria-live="polite" hidden></p>
+          <div class="password-actions">
+            <button type="submit" class="primary-button" id="password-submit">更新密码</button>
+          </div>
+        </form>
+      </section>
+
       <section class="admin-section glass" aria-labelledby="apps-editor-title">
         <div class="section-header admin-section-header">
           <div>
@@ -81,6 +130,10 @@
         </div>
       </section>
     </main>
+
+    <button type="button" class="back-to-top" id="back-to-top" aria-label="回到顶部" hidden>
+      ↑
+    </button>
 
     <datalist id="category-suggestions"></datalist>
 

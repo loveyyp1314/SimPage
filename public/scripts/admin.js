@@ -26,6 +26,13 @@ const loginForm = document.getElementById("login-form");
 const loginPasswordInput = document.getElementById("login-password");
 const loginError = document.getElementById("login-error");
 const logoutButton = document.getElementById("logout-button");
+const passwordForm = document.getElementById("password-form");
+const currentPasswordInput = document.getElementById("current-password");
+const newPasswordInput = document.getElementById("new-password");
+const confirmPasswordInput = document.getElementById("confirm-password");
+const passwordMessage = document.getElementById("password-message");
+const backToTopButton = document.getElementById("back-to-top");
+const faviconLink = document.getElementById("site-favicon");
 
 const typeLabels = {
   apps: "应用",
@@ -35,6 +42,14 @@ const typeLabels = {
 const STORAGE_KEY = "modern-navigation-admin-token";
 const DATA_ENDPOINT = "/api/admin/data";
 const LOGIN_ENDPOINT = "/api/login";
+const PASSWORD_ENDPOINT = "/api/admin/password";
+
+const defaultDocumentTitle = document.title || "导航后台编辑";
+const defaultFaviconHref = faviconLink?.getAttribute("href") || "data:,";
+const DEFAULT_FAVICON_SYMBOL = "🧭";
+const ADMIN_TITLE_SUFFIX = " · 后台管理";
+const faviconCache = new Map();
+const BACK_TO_TOP_THRESHOLD = 320;
 
 const defaultSettings = {
   siteName: siteNameInput && siteNameInput.value.trim() ? siteNameInput.value.trim() : "导航中心",
@@ -135,13 +150,111 @@ function applySettingsToInputs(settings) {
   if (siteNameInput) siteNameInput.value = settings.siteName || "";
   if (siteLogoInput) siteLogoInput.value = settings.siteLogo || "";
   if (siteGreetingInput) siteGreetingInput.value = settings.greeting || "";
+  updatePageIdentity(settings);
 }
 
 function handleSettingsChange(field, value) {
   if (!state.settings) return;
   state.settings[field] = value;
+  updatePageIdentity(state.settings);
   markDirty();
   setStatus("站点信息已更新，记得保存。", "neutral");
+}
+
+function updatePageIdentity(settings) {
+  const siteName = settings?.siteName;
+  const siteLogo = settings?.siteLogo;
+  updateDocumentTitle(siteName);
+  updateFavicon(siteLogo, siteName);
+}
+
+function updateDocumentTitle(siteName) {
+  const clean = typeof siteName === "string" ? siteName.trim() : "";
+  document.title = clean ? `${clean}${ADMIN_TITLE_SUFFIX}` : defaultDocumentTitle;
+}
+
+function updateFavicon(rawValue, siteName) {
+  if (!faviconLink) return;
+  const cleanValue = typeof rawValue === "string" ? rawValue.trim() : "";
+
+  if (cleanValue) {
+    if (isLogoUrl(cleanValue)) {
+      faviconLink.href = cleanValue;
+      faviconLink.removeAttribute("type");
+      faviconLink.removeAttribute("sizes");
+      return;
+    }
+
+    const emojiUrl = createEmojiFavicon(cleanValue);
+    if (emojiUrl) {
+      faviconLink.href = emojiUrl;
+      faviconLink.setAttribute("type", "image/png");
+      faviconLink.setAttribute("sizes", "64x64");
+      return;
+    }
+  }
+
+  const fallbackUrl = createEmojiFavicon(deriveFaviconSymbol(siteName));
+  if (fallbackUrl) {
+    faviconLink.href = fallbackUrl;
+    faviconLink.setAttribute("type", "image/png");
+    faviconLink.setAttribute("sizes", "64x64");
+    return;
+  }
+
+  if (defaultFaviconHref) {
+    faviconLink.href = defaultFaviconHref;
+  } else {
+    faviconLink.href = "data:,";
+  }
+  faviconLink.removeAttribute("type");
+  faviconLink.removeAttribute("sizes");
+}
+
+function deriveFaviconSymbol(siteName) {
+  if (typeof siteName === "string" && siteName.trim()) {
+    const units = Array.from(siteName.trim());
+    if (units.length > 0) {
+      return units[0];
+    }
+  }
+  return DEFAULT_FAVICON_SYMBOL;
+}
+
+function createEmojiFavicon(symbolValue) {
+  const base = typeof symbolValue === "string" ? symbolValue.trim() : "";
+  const units = base ? Array.from(base) : [];
+  const symbol = units.length > 0 ? units[0] : DEFAULT_FAVICON_SYMBOL;
+
+  if (faviconCache.has(symbol)) {
+    return faviconCache.get(symbol);
+  }
+
+  const canvas = document.createElement("canvas");
+  const size = 64;
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = "rgba(0, 0, 0, 0)";
+  context.fillRect(0, 0, size, size);
+  context.font = `${Math.round(size * 0.7)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "#111827";
+  context.fillText(symbol, size / 2, size / 2);
+
+  const dataUrl = canvas.toDataURL("image/png");
+  faviconCache.set(symbol, dataUrl);
+  return dataUrl;
+}
+
+function isLogoUrl(value) {
+  return typeof value === "string" && (/^https?:\/\//i.test(value) || value.startsWith("data:"));
 }
 
 function render() {
@@ -594,6 +707,7 @@ function handleUnauthorized(message) {
   render();
   resetDirty();
   showAuthOverlay();
+  setPasswordMessage("");
   setStatus(message || "登录状态已失效，请重新登录。", "error");
   if (logoutButton) logoutButton.disabled = true;
 }
@@ -601,6 +715,7 @@ function handleUnauthorized(message) {
 function handleLogout() {
   if (!authToken) {
     showAuthOverlay();
+    setPasswordMessage("");
     setStatus("已退出登录。", "neutral");
     return;
   }
@@ -613,6 +728,7 @@ function handleLogout() {
   render();
   resetDirty();
   showAuthOverlay();
+  setPasswordMessage("");
   setStatus("已退出登录。", "neutral");
   if (logoutButton) logoutButton.disabled = true;
 }
@@ -621,6 +737,7 @@ function showAuthOverlay() {
   if (!authOverlay) return;
   authOverlay.hidden = false;
   setLoginError("");
+  setPasswordMessage("");
   if (loginPasswordInput) {
     loginPasswordInput.disabled = false;
     loginPasswordInput.value = "";
@@ -635,6 +752,7 @@ function hideAuthOverlay() {
   if (!authOverlay) return;
   authOverlay.hidden = true;
   setLoginError("");
+  setPasswordMessage("");
   if (loginPasswordInput) {
     loginPasswordInput.value = "";
     loginPasswordInput.disabled = false;
@@ -649,6 +767,23 @@ function setLoginError(message) {
   } else {
     loginError.textContent = "";
     loginError.hidden = true;
+  }
+}
+
+function setPasswordMessage(message, variant = "neutral") {
+  if (!passwordMessage) return;
+  if (!message) {
+    passwordMessage.textContent = "";
+    passwordMessage.hidden = true;
+    passwordMessage.removeAttribute("data-variant");
+    return;
+  }
+  passwordMessage.textContent = message;
+  passwordMessage.hidden = false;
+  if (variant === "success" || variant === "error") {
+    passwordMessage.dataset.variant = variant;
+  } else {
+    passwordMessage.removeAttribute("data-variant");
   }
 }
 
@@ -696,6 +831,7 @@ async function handleLoginSubmit(event) {
 
   try {
     await performLogin(password);
+    setPasswordMessage("");
     loginPasswordInput.value = "";
   } catch (error) {
     console.error("登录失败", error);
@@ -704,6 +840,102 @@ async function handleLoginSubmit(event) {
   } finally {
     if (submitButton) submitButton.disabled = false;
     loginPasswordInput.disabled = false;
+  }
+}
+
+async function handlePasswordSubmit(event) {
+  event.preventDefault();
+  if (!passwordForm) return;
+
+  if (!authToken) {
+    setPasswordMessage("请登录后再修改密码。", "error");
+    showAuthOverlay();
+    return;
+  }
+
+  const currentValue = currentPasswordInput ? currentPasswordInput.value : "";
+  const trimmedCurrent = currentValue.trim();
+  if (!trimmedCurrent) {
+    setPasswordMessage("请输入当前密码。", "error");
+    if (currentPasswordInput) currentPasswordInput.focus();
+    return;
+  }
+
+  const newRaw = newPasswordInput ? newPasswordInput.value : "";
+  const confirmRaw = confirmPasswordInput ? confirmPasswordInput.value : "";
+  const newValue = newRaw.trim();
+  const confirmValue = confirmRaw.trim();
+
+  if (!newValue) {
+    setPasswordMessage("请输入新密码。", "error");
+    if (newPasswordInput) newPasswordInput.focus();
+    return;
+  }
+
+  if (newValue.length < 6) {
+    setPasswordMessage("新密码长度至少需 6 位。", "error");
+    if (newPasswordInput) newPasswordInput.focus();
+    return;
+  }
+
+  if (!confirmValue) {
+    setPasswordMessage("请再次输入新密码。", "error");
+    if (confirmPasswordInput) confirmPasswordInput.focus();
+    return;
+  }
+
+  if (newValue !== confirmValue) {
+    setPasswordMessage("两次输入的新密码不一致。", "error");
+    if (confirmPasswordInput) confirmPasswordInput.focus();
+    return;
+  }
+
+  setPasswordMessage("正在更新密码...");
+  setStatus("正在更新密码...", "neutral");
+
+  const submitButton = passwordForm.querySelector('button[type="submit"]');
+  const passwordInputs = Array.from(passwordForm.querySelectorAll('input[type="password"]'));
+  passwordInputs.forEach((input) => {
+    input.disabled = true;
+  });
+  if (submitButton) submitButton.disabled = true;
+
+  let focusCurrentInput = false;
+
+  try {
+    const response = await fetch(PASSWORD_ENDPOINT, {
+      method: "POST",
+      headers: buildAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ currentPassword: currentValue, newPassword: newValue }),
+    });
+
+    if (response.status === 401) {
+      handleUnauthorized("登录已过期，请重新登录后再修改密码。");
+      return;
+    }
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response);
+      throw new Error(message || "密码更新失败");
+    }
+
+    passwordForm.reset();
+    setPasswordMessage("密码已更新，下次登录请使用新密码。", "success");
+    setStatus("密码已更新，下次登录请使用新密码。", "success");
+    focusCurrentInput = true;
+  } catch (error) {
+    console.error("更新密码失败", error);
+    const message = error && error.message ? error.message : "密码更新失败，请稍后再试。";
+    setPasswordMessage(message, "error");
+    setStatus(message, "error");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+    passwordInputs.forEach((input) => {
+      input.disabled = false;
+    });
+    if (focusCurrentInput && currentPasswordInput) {
+      currentPasswordInput.focus();
+    }
   }
 }
 
@@ -780,6 +1012,16 @@ function bindEvents() {
     }
   });
 
+  if (passwordForm) {
+    passwordForm.addEventListener("submit", handlePasswordSubmit);
+    const passwordInputs = passwordForm.querySelectorAll('input[type="password"]');
+    passwordInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        setPasswordMessage("");
+      });
+    });
+  }
+
   if (loginForm) {
     loginForm.addEventListener("submit", handleLoginSubmit);
   }
@@ -789,7 +1031,36 @@ function bindEvents() {
   }
 }
 
+function scrollToTop() {
+  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (prefersReducedMotion) {
+    window.scrollTo(0, 0);
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function handleBackToTopVisibility() {
+  if (!backToTopButton) return;
+  if (window.scrollY > BACK_TO_TOP_THRESHOLD) {
+    if (backToTopButton.hasAttribute("hidden")) {
+      backToTopButton.removeAttribute("hidden");
+    }
+  } else if (!backToTopButton.hasAttribute("hidden")) {
+    backToTopButton.setAttribute("hidden", "");
+  }
+}
+
 async function initialise() {
+  updatePageIdentity(state.settings);
+  if (backToTopButton) {
+    backToTopButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      scrollToTop();
+    });
+    handleBackToTopVisibility();
+    window.addEventListener("scroll", handleBackToTopVisibility, { passive: true });
+  }
   bindEvents();
   applySettingsToInputs(state.settings);
   render();

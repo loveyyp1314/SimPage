@@ -1,5 +1,4 @@
 const siteNameElement = document.getElementById("site-name");
-const siteLogoElement = document.getElementById("site-logo");
 const timeElement = document.getElementById("current-time");
 const dateElement = document.getElementById("current-date");
 const greetingElement = document.getElementById("greeting-text");
@@ -14,16 +13,21 @@ const searchTargetSelect = document.getElementById("search-target");
 const searchEngineSelect = document.getElementById("search-engine");
 const searchEngineWrapper = document.querySelector('.search-select[data-control="engine"]');
 const searchFeedback = document.getElementById("local-search-feedback");
+const backToTopButton = document.getElementById("back-to-top");
+const faviconLink = document.getElementById("site-favicon");
 
-const defaultSiteName = siteNameElement && siteNameElement.textContent
-  ? siteNameElement.textContent.trim() || "导航中心"
-  : "导航中心";
-const defaultDocumentTitle = document.title || defaultSiteName;
+const defaultDocumentTitle = document.title || "导航中心";
+const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "导航中心";
 const DEFAULT_SITE_SETTINGS = {
   siteName: defaultSiteName,
   siteLogo: "",
   greeting: "",
 };
+
+const defaultFaviconHref = faviconLink?.getAttribute("href") || "data:,";
+const DEFAULT_FAVICON_SYMBOL = "🧭";
+const faviconCache = new Map();
+const BACK_TO_TOP_THRESHOLD = 320;
 
 let customGreeting = "";
 
@@ -149,35 +153,94 @@ function applySiteSettings(settings) {
   if (siteNameElement) {
     siteNameElement.textContent = prepared.siteName;
   }
-  document.title = prepared.siteName || defaultDocumentTitle;
-  renderSiteLogo(prepared.siteLogo);
+  updateDocumentTitle(prepared.siteName);
+  updateFavicon(prepared.siteLogo, prepared.siteName);
   updateGreetingDisplay();
 }
 
-function renderSiteLogo(value) {
-  if (!siteLogoElement) return;
-  while (siteLogoElement.firstChild) {
-    siteLogoElement.removeChild(siteLogoElement.firstChild);
+function updateDocumentTitle(siteName) {
+  const clean = typeof siteName === "string" ? siteName.trim() : "";
+  document.title = clean || defaultDocumentTitle;
+}
+
+function updateFavicon(rawValue, siteName) {
+  if (!faviconLink) return;
+  const cleanValue = typeof rawValue === "string" ? rawValue.trim() : "";
+
+  if (cleanValue) {
+    if (isLogoUrl(cleanValue)) {
+      faviconLink.href = cleanValue;
+      faviconLink.removeAttribute("type");
+      faviconLink.removeAttribute("sizes");
+      return;
+    }
+
+    const emojiUrl = createEmojiFavicon(cleanValue);
+    if (emojiUrl) {
+      faviconLink.href = emojiUrl;
+      faviconLink.setAttribute("type", "image/png");
+      faviconLink.setAttribute("sizes", "64x64");
+      return;
+    }
   }
-  siteLogoElement.textContent = "";
-  siteLogoElement.classList.remove("has-image");
-  const clean = typeof value === "string" ? value.trim() : "";
-  if (!clean) {
-    siteLogoElement.hidden = true;
+
+  const fallbackUrl = createEmojiFavicon(deriveFaviconSymbol(siteName));
+  if (fallbackUrl) {
+    faviconLink.href = fallbackUrl;
+    faviconLink.setAttribute("type", "image/png");
+    faviconLink.setAttribute("sizes", "64x64");
     return;
   }
 
-  siteLogoElement.hidden = false;
-  if (isLogoUrl(clean)) {
-    const img = document.createElement("img");
-    img.src = clean;
-    img.alt = "";
-    img.decoding = "async";
-    siteLogoElement.classList.add("has-image");
-    siteLogoElement.appendChild(img);
+  if (defaultFaviconHref) {
+    faviconLink.href = defaultFaviconHref;
   } else {
-    siteLogoElement.textContent = clean.slice(0, 4);
+    faviconLink.href = "data:,";
   }
+  faviconLink.removeAttribute("type");
+  faviconLink.removeAttribute("sizes");
+}
+
+function deriveFaviconSymbol(siteName) {
+  if (typeof siteName === "string" && siteName.trim()) {
+    const units = Array.from(siteName.trim());
+    if (units.length > 0) {
+      return units[0];
+    }
+  }
+  return DEFAULT_FAVICON_SYMBOL;
+}
+
+function createEmojiFavicon(symbolValue) {
+  const base = typeof symbolValue === "string" ? symbolValue.trim() : "";
+  const units = base ? Array.from(base) : [];
+  const symbol = units.length > 0 ? units[0] : DEFAULT_FAVICON_SYMBOL;
+
+  if (faviconCache.has(symbol)) {
+    return faviconCache.get(symbol);
+  }
+
+  const canvas = document.createElement("canvas");
+  const size = 64;
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = "rgba(0, 0, 0, 0)";
+  context.fillRect(0, 0, size, size);
+  context.font = `${Math.round(size * 0.7)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "#111827";
+  context.fillText(symbol, size / 2, size / 2);
+
+  const dataUrl = canvas.toDataURL("image/png");
+  faviconCache.set(symbol, dataUrl);
+  return dataUrl;
 }
 
 function isLogoUrl(value) {
@@ -540,11 +603,41 @@ function weatherCodeToText(code) {
   return mapping[code] || "天气良好";
 }
 
+function scrollToTop() {
+  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (prefersReducedMotion) {
+    window.scrollTo(0, 0);
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function handleBackToTopVisibility() {
+  if (!backToTopButton) return;
+  if (window.scrollY > BACK_TO_TOP_THRESHOLD) {
+    if (backToTopButton.hasAttribute("hidden")) {
+      backToTopButton.removeAttribute("hidden");
+    }
+  } else if (!backToTopButton.hasAttribute("hidden")) {
+    backToTopButton.setAttribute("hidden", "");
+  }
+}
+
 function initialise() {
+  updateDocumentTitle(DEFAULT_SITE_SETTINGS.siteName);
+  updateFavicon(DEFAULT_SITE_SETTINGS.siteLogo, DEFAULT_SITE_SETTINGS.siteName);
   updateClock();
   setInterval(updateClock, 60_000);
   loadData();
   loadWeather();
+  if (backToTopButton) {
+    backToTopButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      scrollToTop();
+    });
+    handleBackToTopVisibility();
+    window.addEventListener("scroll", handleBackToTopVisibility, { passive: true });
+  }
   if (searchForm) {
     searchForm.addEventListener("submit", handleSearchSubmit);
   }
