@@ -280,6 +280,61 @@ body.admin-body {
   padding-left: 0.2rem;
 }
 
+.search-engine-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.search-engine-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.search-engine-button .engine-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.search-engine-button svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.search-engine-button:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.search-engine-button.is-active {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.28);
+}
+
+.search-engine-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+}
+
+.search-engine-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .admin-entry {
   font-size: 0.9rem;
   color: rgba(31, 41, 55, 0.72);
@@ -309,6 +364,11 @@ body.admin-body {
   gap: 1.5rem;
 }
 
+.section-header-with-toggle {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .section-header h2 {
   margin: 0;
   font-size: clamp(1.35rem, 3vw, 1.7rem);
@@ -320,11 +380,141 @@ body.admin-body {
   color: var(--text-secondary);
 }
 
+.collection-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.collection-toggle-button {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(31, 31, 31, 0.62);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.collection-toggle-button:hover,
+.collection-toggle-button:focus-visible {
+  outline: none;
+  background: rgba(59, 130, 246, 0.12);
+  color: rgba(31, 31, 31, 0.82);
+}
+
+.collection-toggle-button.is-active {
+  background: rgba(59, 130, 246, 0.16);
+  color: rgba(31, 31, 31, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.28);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: clamp(1rem, 2.5vw, 1.6rem);
   align-items: stretch;
+}
+
+.collection-panels {
+  display: grid;
+  gap: clamp(1.2rem, 2.8vw, 1.8rem);
+}
+
+.collection-panel {
+  display: grid;
+  gap: clamp(1rem, 2.5vw, 1.6rem);
+}
+
+.collection-panel[hidden] {
+  display: none;
+}
+
+.site-footer {
+  width: min(1140px, 100%);
+  margin: clamp(1.6rem, 3vw, 2.4rem) auto 0;
+  padding: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.site-footer[hidden] {
+  display: none;
+}
+
+.site-footer-inner {
+  display: grid;
+  gap: 1rem;
+}
+
+.site-footer-content {
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: rgba(31, 31, 31, 0.78);
+  line-height: 1.75;
+}
+
+.site-footer-content > * {
+  margin: 0;
+}
+
+.site-footer-content h1,
+.site-footer-content h2,
+.site-footer-content h3,
+.site-footer-content h4,
+.site-footer-content h5,
+.site-footer-content h6 {
+  font-weight: 600;
+  color: rgba(31, 31, 31, 0.88);
+  margin-bottom: 0.1rem;
+}
+
+.site-footer-content ul,
+.site-footer-content ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.site-footer-content blockquote {
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 3px solid rgba(59, 130, 246, 0.28);
+  color: rgba(31, 31, 31, 0.58);
+}
+
+.site-footer-content code {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.88rem;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+}
+
+.site-footer-content a {
+  color: rgba(37, 99, 235, 0.9);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.4);
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.site-footer-content a:hover,
+.site-footer-content a:focus-visible {
+  color: rgba(37, 99, 235, 1);
+  border-color: rgba(37, 99, 235, 0.7);
+  outline: none;
+}
+
+.site-footer-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
 }
 
 .bookmark-collection {
@@ -921,6 +1111,75 @@ body.admin-body {
 
 .field textarea {
   min-height: 88px;
+}
+
+.field-description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(31, 41, 55, 0.52);
+}
+
+.footer-preview-field .footer-preview {
+  min-height: 120px;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 0.6rem;
+  color: rgba(31, 41, 55, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.footer-preview-field .footer-preview > * {
+  margin: 0;
+}
+
+.footer-preview-field .footer-preview ul,
+.footer-preview-field .footer-preview ol {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.footer-preview-field .footer-preview blockquote {
+  margin: 0;
+  padding-left: 0.9rem;
+  border-left: 3px solid rgba(59, 130, 246, 0.24);
+  color: rgba(31, 41, 55, 0.58);
+}
+
+.footer-preview-field .footer-preview code {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+}
+
+.footer-preview-field .footer-preview a {
+  color: rgba(37, 99, 235, 0.9);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.45);
+}
+
+.footer-preview-field .footer-preview a:hover,
+.footer-preview-field .footer-preview a:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.footer-preview-field .footer-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.footer-preview-empty {
+  color: rgba(31, 41, 55, 0.45);
+  font-size: 0.85rem;
 }
 
 .admin-actions {

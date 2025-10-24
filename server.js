@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   siteName: "导航中心",
   siteLogo: "",
   greeting: "",
+  footer: "",
 };
 
 const DEFAULT_ADMIN_PASSWORD = "admin123";
@@ -232,11 +233,13 @@ function normaliseFullData(raw) {
       siteName: typeof raw.settings.siteName === "string" ? raw.settings.siteName.trim() : "",
       siteLogo: typeof raw.settings.siteLogo === "string" ? raw.settings.siteLogo.trim() : "",
       greeting: typeof raw.settings.greeting === "string" ? raw.settings.greeting.trim() : "",
+      footer: typeof raw.settings.footer === "string" ? raw.settings.footer.trim() : "",
     };
     if (
       originalSettings.siteName !== result.settings.siteName ||
       originalSettings.siteLogo !== result.settings.siteLogo ||
-      originalSettings.greeting !== result.settings.greeting
+      originalSettings.greeting !== result.settings.greeting ||
+      originalSettings.footer !== result.settings.footer
     ) {
       mutated = true;
     }
@@ -261,6 +264,14 @@ function normaliseAdminFromFile(rawAdmin) {
   return { value: credentials, mutated: true, passwordReset: true };
 }
 
+function normaliseFooterValue(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const normalised = value.replace(/\r\n?/g, "\n");
+  return normalised.trim() ? normalised : "";
+}
+
 function buildSettingsFromFile(rawSettings) {
   const settings = { ...DEFAULT_SETTINGS };
   if (!rawSettings || typeof rawSettings !== "object") {
@@ -274,6 +285,9 @@ function buildSettingsFromFile(rawSettings) {
   }
   if (typeof rawSettings.greeting === "string") {
     settings.greeting = rawSettings.greeting.trim();
+  }
+  if (typeof rawSettings.footer === "string") {
+    settings.footer = normaliseFooterValue(rawSettings.footer);
   }
   return settings;
 }
@@ -392,11 +406,13 @@ function normaliseSettingsInput(input) {
 
   const siteLogo = typeof input?.siteLogo === "string" ? input.siteLogo.trim() : "";
   const greeting = typeof input?.greeting === "string" ? input.greeting.trim() : "";
+  const footer = normaliseFooterValue(input?.footer);
 
   return {
     siteName,
     siteLogo,
     greeting,
+    footer,
   };
 }
 

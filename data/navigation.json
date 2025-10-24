@@ -2,7 +2,8 @@
   "settings": {
     "siteName": "导航中心",
     "siteLogo": "",
-    "greeting": ""
+    "greeting": "",
+    "footer": ""
   },
   "apps": [
     {
