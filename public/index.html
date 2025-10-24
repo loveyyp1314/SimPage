@@ -13,55 +13,51 @@
     <div class="ambient ambient-b" aria-hidden="true"></div>
     <main class="layout">
       <section class="summary glass" aria-label="今日概览">
-        <h1 class="sr-only" id="site-name">导航中心</h1>
-        <div class="summary-intro">
+        <div class="summary-main">
+          <h1 class="sr-only" id="site-name">导航中心</h1>
           <span class="badge">今日概览</span>
-          <div class="summary-highlight">
-            <div class="time-card">
-              <div class="time-display" id="current-time">--:--</div>
-              <div class="time-meta">
-                <div class="date-display" id="current-date">--</div>
-                <div class="greeting" id="greeting-text">欢迎回来</div>
+          <div class="time-display" id="current-time">--:--</div>
+          <div class="date-display" id="current-date">--</div>
+          <div class="greeting" id="greeting-text">欢迎回来</div>
+        </div>
+        <div class="summary-meta">
+          <div class="weather-block">
+            <span class="weather-label">天气</span>
+            <p class="weather-info" id="weather-info">正在获取天气...</p>
+          </div>
+          <form class="search-form" id="global-search-form">
+            <label for="global-search" class="sr-only">搜索</label>
+            <div class="search-controls">
+              <div class="search-select" data-control="target">
+                <label class="sr-only" for="search-target">搜索范围</label>
+                <select id="search-target" name="target">
+                  <option value="web">网页搜索</option>
+                  <option value="apps">本地应用</option>
+                  <option value="bookmarks">本地书签</option>
+                </select>
+              </div>
+              <div class="search-select" data-control="engine">
+                <label class="sr-only" for="search-engine">搜索引擎</label>
+                <select id="search-engine" name="engine">
+                  <option value="google">Google</option>
+                  <option value="baidu">百度</option>
+                  <option value="bing">Bing</option>
+                </select>
               </div>
             </div>
-            <div class="weather-card">
-              <span class="weather-label">天气</span>
-              <p class="weather-info" id="weather-info">正在获取天气...</p>
+            <div class="search-input">
+              <input
+                type="search"
+                id="global-search"
+                name="query"
+                placeholder="搜索网页、应用或书签..."
+                autocomplete="off"
+              />
+              <button type="submit">搜索</button>
             </div>
-          </div>
+            <p class="search-feedback" id="local-search-feedback" hidden></p>
+          </form>
         </div>
-        <form class="search-form" id="global-search-form">
-          <label for="global-search" class="sr-only">搜索</label>
-          <div class="search-controls">
-            <div class="search-select" data-control="target">
-              <label class="sr-only" for="search-target">搜索范围</label>
-              <select id="search-target" name="target">
-                <option value="web">网页搜索</option>
-                <option value="apps">本地应用</option>
-                <option value="bookmarks">本地书签</option>
-              </select>
-            </div>
-            <div class="search-select" data-control="engine">
-              <label class="sr-only" for="search-engine">搜索引擎</label>
-              <select id="search-engine" name="engine">
-                <option value="google">Google</option>
-                <option value="baidu">百度</option>
-                <option value="bing">Bing</option>
-              </select>
-            </div>
-          </div>
-          <div class="search-input">
-            <input
-              type="search"
-              id="global-search"
-              name="query"
-              placeholder="搜索网页、应用或书签..."
-              autocomplete="off"
-            />
-            <button type="submit">搜索</button>
-          </div>
-          <p class="search-feedback" id="local-search-feedback" hidden></p>
-        </form>
       </section>
 
       <section class="grid-section glass" aria-labelledby="apps-title">
