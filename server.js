@@ -8,7 +8,7 @@ const DATA_DIR = path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "navigation.json");
 
 const DEFAULT_SETTINGS = {
-  siteName: "导航中心",
+  siteName: "SimPage",
   siteLogo: "",
   greeting: "",
   footer: "",
