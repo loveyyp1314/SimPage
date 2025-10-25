@@ -16,6 +16,16 @@ const modalDescriptionInput = document.getElementById("editor-description");
 const modalIconInput = document.getElementById("editor-icon");
 const modalCategoryField = document.getElementById("editor-category-field");
 const modalCategoryInput = document.getElementById("editor-category");
+const modalCategoryPlaceholder =
+  modalCategoryField ? document.createComment("modal-category-placeholder") : null;
+
+if (modalCategoryField && modalCategoryPlaceholder && modalCategoryField.parentNode) {
+  modalCategoryField.replaceWith(modalCategoryPlaceholder);
+  if (modalCategoryInput) {
+    modalCategoryInput.disabled = true;
+  }
+}
+
 const modalCancelButton = document.getElementById("editor-cancel-button");
 const modalCloseButton = document.getElementById("editor-close-button");
 const modalOverlay = document.getElementById("editor-modal-overlay");
@@ -506,6 +516,34 @@ function deriveFallbackIcon(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() : "★";
 }
 
+function showBookmarkCategoryField(value) {
+  if (!modalCategoryField || !modalCategoryPlaceholder) return;
+  if (!modalCategoryField.isConnected && modalCategoryPlaceholder.parentNode) {
+    modalCategoryPlaceholder.replaceWith(modalCategoryField);
+  }
+  modalCategoryField.hidden = false;
+  modalCategoryField.removeAttribute("hidden");
+  modalCategoryField.removeAttribute("aria-hidden");
+  if (modalCategoryInput) {
+    modalCategoryInput.disabled = false;
+    modalCategoryInput.value = value || "";
+  }
+}
+
+function hideBookmarkCategoryField() {
+  if (!modalCategoryField || !modalCategoryPlaceholder) return;
+  if (modalCategoryField.isConnected) {
+    modalCategoryField.hidden = true;
+    modalCategoryField.setAttribute("hidden", "");
+    modalCategoryField.setAttribute("aria-hidden", "true");
+    modalCategoryField.replaceWith(modalCategoryPlaceholder);
+  }
+  if (modalCategoryInput) {
+    modalCategoryInput.value = "";
+    modalCategoryInput.disabled = true;
+  }
+}
+
 function openEditor(type, index) {
   const isNew = typeof index !== "number";
   const reference = isNew ? createBlankItem(type) : state[type][index];
@@ -523,11 +561,9 @@ function openEditor(type, index) {
   if (modalIconInput) modalIconInput.value = reference.icon || "";
 
   if (type === "bookmarks") {
-    if (modalCategoryField) modalCategoryField.hidden = false;
-    if (modalCategoryInput) modalCategoryInput.value = reference.category || "";
-  } else if (modalCategoryField) {
-    modalCategoryField.hidden = true;
-    if (modalCategoryInput) modalCategoryInput.value = "";
+    showBookmarkCategoryField(reference.category || "");
+  } else {
+    hideBookmarkCategoryField();
   }
 
   if (modalError) {
@@ -556,6 +592,7 @@ function closeEditor() {
   if (modalError) {
     modalError.textContent = "";
   }
+  hideBookmarkCategoryField();
   modalContext = null;
 }
 

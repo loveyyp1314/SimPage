@@ -49,6 +49,7 @@ const faviconCache = new Map();
 const BACK_TO_TOP_THRESHOLD = 320;
 
 let customGreeting = "";
+let yiyanMessage = "";
 
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -159,7 +160,15 @@ function getGreeting(hour) {
 
 function updateGreetingDisplay(hour = new Date().getHours()) {
   if (!greetingElement) return;
-  greetingElement.textContent = customGreeting || getGreeting(hour);
+  if (customGreeting) {
+    greetingElement.textContent = customGreeting;
+    return;
+  }
+  if (yiyanMessage) {
+    greetingElement.textContent = yiyanMessage;
+    return;
+  }
+  greetingElement.textContent = getGreeting(hour);
 }
 
 async function loadData() {
@@ -648,6 +657,60 @@ function updateSearchControls() {
   }
 }
 
+function formatYiyanQuote(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+  const sentence = typeof payload.hitokoto === "string" ? payload.hitokoto.trim() : "";
+  if (!sentence) {
+    return "";
+  }
+  const sources = [];
+  const fromWho = typeof payload.from_who === "string" ? payload.from_who.trim() : "";
+  const origin = typeof payload.from === "string" ? payload.from.trim() : "";
+  if (fromWho) {
+    sources.push(fromWho);
+  }
+  if (origin && sources.indexOf(origin) === -1) {
+    sources.push(origin);
+  }
+  if (!sources.length) {
+    return sentence;
+  }
+  return `${sentence} —— ${sources.join(" · ")}`;
+}
+
+async function loadYiyanQuote() {
+  if (!greetingElement) return;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  let timeoutId = null;
+  try {
+    if (controller) {
+      timeoutId = setTimeout(() => controller.abort(), 5000);
+    }
+    const options = { cache: "no-cache" };
+    if (controller) {
+      options.signal = controller.signal;
+    }
+    const response = await fetch("https://v1.hitokoto.cn/?encode=json", options);
+    if (!response.ok) {
+      throw new Error("一言接口请求失败");
+    }
+    const data = await response.json();
+    const message = formatYiyanQuote(data);
+    if (message) {
+      yiyanMessage = message;
+      updateGreetingDisplay();
+    }
+  } catch (error) {
+    console.error("一言获取失败", error);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 function loadWeather() {
   if (!weatherElement) return;
 
@@ -768,6 +831,7 @@ function initialise() {
   setInterval(updateClock, 60_000);
   loadData();
   loadWeather();
+  loadYiyanQuote();
   if (backToTopButton) {
     backToTopButton.addEventListener("click", (event) => {
       event.preventDefault();
@@ -782,10 +846,6 @@ function initialise() {
         const view = button.dataset.view;
         if (!view) return;
         showCollection(view);
-        if (searchTargetSelect && searchTargetSelect.value !== view) {
-          searchTargetSelect.value = view;
-        }
-        updateSearchControls();
       });
       button.addEventListener("keydown", (event) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
@@ -801,10 +861,6 @@ function initialise() {
         const view = nextButton.dataset.view;
         if (!view) return;
         showCollection(view, { focusTab: true });
-        if (searchTargetSelect && searchTargetSelect.value !== view) {
-          searchTargetSelect.value = view;
-        }
-        updateSearchControls();
       });
     });
   }
