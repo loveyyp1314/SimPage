@@ -469,7 +469,7 @@ body.admin-body {
   display: inline-grid;
   gap: 0.65rem;
   font-size: 0.9rem;
-  color: rgba(31, 31, 31, 0.82);
+  color: rgba(17, 24, 39, 0.94);
   line-height: 1.7;
   text-align: center;
   justify-items: center;
@@ -488,7 +488,7 @@ body.admin-body {
 .site-footer-content h5,
 .site-footer-content h6 {
   font-weight: 600;
-  color: rgba(31, 31, 31, 0.88);
+  color: rgba(17, 24, 39, 0.98);
   margin-bottom: 0.1rem;
 }
 
@@ -506,7 +506,7 @@ body.admin-body {
   margin: 0;
   padding: 0;
   border: none;
-  color: rgba(31, 31, 31, 0.58);
+  color: rgba(17, 24, 39, 0.72);
   font-style: italic;
   text-align: center;
 }
@@ -1149,7 +1149,7 @@ body.admin-body {
   background: rgba(255, 255, 255, 0.9);
   display: grid;
   gap: 0.6rem;
-  color: rgba(31, 41, 55, 0.78);
+  color: rgba(17, 24, 39, 0.88);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -1170,7 +1170,7 @@ body.admin-body {
   margin: 0;
   padding-left: 0.9rem;
   border-left: 3px solid rgba(59, 130, 246, 0.24);
-  color: rgba(31, 41, 55, 0.58);
+  color: rgba(17, 24, 39, 0.7);
 }
 
 .footer-preview-field .footer-preview code {
