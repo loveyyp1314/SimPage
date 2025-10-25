@@ -1,3 +1,5 @@
+@import url("https://fonts.font.im/css2?family=LXGW+WenKai&display=swap");
+
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -173,6 +175,13 @@ body.admin-body {
 .greeting {
   font-size: clamp(1.05rem, 2.4vw, 1.3rem);
   font-weight: 500;
+}
+
+.greeting.is-yiyan {
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-family: "LXGW WenKai", "ZCOOL XiaoWei", "Songti SC", "SimSun", serif;
+  font-weight: 500;
+  line-height: 1.65;
 }
 
 .summary-meta {
@@ -439,7 +448,11 @@ body.admin-body {
 .site-footer {
   width: min(1140px, 100%);
   margin: clamp(1.6rem, 3vw, 2.4rem) auto 0;
-  padding: clamp(1.8rem, 4vw, 2.4rem);
+  padding: 0 0 clamp(1.6rem, 4vw, 2.4rem);
+  text-align: center;
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 
 .site-footer[hidden] {
@@ -447,20 +460,25 @@ body.admin-body {
 }
 
 .site-footer-inner {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .site-footer-content {
-  display: grid;
-  gap: 0.75rem;
-  font-size: 0.95rem;
-  color: rgba(31, 31, 31, 0.78);
-  line-height: 1.75;
+  display: inline-grid;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  color: rgba(31, 31, 31, 0.68);
+  line-height: 1.7;
+  text-align: center;
+  justify-items: center;
+  max-width: 720px;
 }
 
 .site-footer-content > * {
   margin: 0;
+  justify-self: center;
 }
 
 .site-footer-content h1,
@@ -480,13 +498,17 @@ body.admin-body {
   padding-left: 1.2rem;
   display: grid;
   gap: 0.35rem;
+  text-align: left;
+  justify-self: center;
 }
 
 .site-footer-content blockquote {
   margin: 0;
-  padding-left: 1rem;
-  border-left: 3px solid rgba(59, 130, 246, 0.28);
+  padding: 0;
+  border: none;
   color: rgba(31, 31, 31, 0.58);
+  font-style: italic;
+  text-align: center;
 }
 
 .site-footer-content code {

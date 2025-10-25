@@ -54,6 +54,7 @@ let yiyanMessage = "";
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
+  second: "2-digit",
 });
 
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -160,11 +161,19 @@ function getGreeting(hour) {
 
 function updateGreetingDisplay(hour = new Date().getHours()) {
   if (!greetingElement) return;
-  if (customGreeting) {
+
+  const hasCustomGreeting = Boolean(customGreeting);
+  const shouldUseYiyan = !hasCustomGreeting && Boolean(yiyanMessage);
+
+  if (greetingElement.classList) {
+    greetingElement.classList.toggle("is-yiyan", shouldUseYiyan);
+  }
+
+  if (hasCustomGreeting) {
     greetingElement.textContent = customGreeting;
     return;
   }
-  if (yiyanMessage) {
+  if (shouldUseYiyan) {
     greetingElement.textContent = yiyanMessage;
     return;
   }
@@ -828,7 +837,7 @@ function initialise() {
     setSearchEngine(searchEngineInput.value || "google");
   }
   updateClock();
-  setInterval(updateClock, 60_000);
+  setInterval(updateClock, 1_000);
   loadData();
   loadWeather();
   loadYiyanQuote();
