@@ -66,7 +66,7 @@ const faviconCache = new Map();
 const BACK_TO_TOP_THRESHOLD = 320;
 
 const defaultSettings = {
-  siteName: siteNameInput && siteNameInput.value.trim() ? siteNameInput.value.trim() : "导航中心",
+  siteName: siteNameInput && siteNameInput.value.trim() ? siteNameInput.value.trim() : "SimPage",
   siteLogo: siteLogoInput && siteLogoInput.value.trim() ? siteLogoInput.value.trim() : "",
   greeting: siteGreetingInput && siteGreetingInput.value.trim() ? siteGreetingInput.value.trim() : "",
   footer: siteFooterInput && siteFooterInput.value ? normaliseFooterValue(siteFooterInput.value) : "",

@@ -34,8 +34,8 @@ const collectionPanels = {
   bookmarks: bookmarksPanel,
 };
 
-const defaultDocumentTitle = document.title || "导航中心";
-const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "导航中心";
+const defaultDocumentTitle = document.title || "SimPage";
+const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "SimPage";
 const DEFAULT_SITE_SETTINGS = {
   siteName: defaultSiteName,
   siteLogo: "",

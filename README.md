@@ -36,7 +36,7 @@
   ```json
   {
     "settings": {
-      "siteName": "导航中心",
+      "siteName": "SimPage",
       "siteLogo": "",
       "greeting": ""
     },
