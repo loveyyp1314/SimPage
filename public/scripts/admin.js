@@ -853,24 +853,20 @@ function handleUnauthorized(message) {
 }
 
 function handleLogout() {
-  if (!authToken) {
-    showAuthOverlay();
-    setPasswordMessage("");
-    setStatus("已退出登录。", "neutral");
-    return;
-  }
-  authToken = "";
   clearStoredToken();
+  authToken = "";
   state.apps = [];
   state.bookmarks = [];
   state.settings = normaliseSettingsIncoming(null);
   applySettingsToInputs(state.settings);
   render();
   resetDirty();
-  showAuthOverlay();
   setPasswordMessage("");
-  setStatus("已退出登录。", "neutral");
-  if (logoutButton) logoutButton.disabled = true;
+  setStatus("已退出登录，正在返回首页。", "neutral");
+  if (logoutButton) {
+    logoutButton.disabled = true;
+  }
+  window.location.replace("/");
 }
 
 function showAuthOverlay() {
