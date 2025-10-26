@@ -18,6 +18,12 @@ const DEFAULT_STATS = {
   visitorCount: 0,
 };
 
+const DEFAULT_WEATHER_LOCATION = Object.freeze({
+  latitude: 39.9042,
+  longitude: 116.4074,
+  label: "北京",
+});
+
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 const SESSION_TTL = 12 * 60 * 60 * 1000; // 12 小时
 const CLEANUP_INTERVAL = 60 * 60 * 1000;
@@ -30,6 +36,14 @@ const dataCache = {
   fileMeta: null,
   loadPromise: null,
   lastInfo: { mutated: false, passwordReset: false },
+};
+
+const runtimeDefaultWeatherLocation = Object.freeze(resolveDefaultWeatherLocation());
+
+const runtimeConfig = {
+  weather: {
+    defaultLocation: runtimeDefaultWeatherLocation,
+  },
 };
 
 async function readDataFileMeta() {
@@ -133,6 +147,19 @@ app.get("/api/data", async (_req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+app.get("/api/config", (_req, res) => {
+  const location = runtimeConfig.weather.defaultLocation;
+  res.json({
+    weather: {
+      defaultLocation: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        label: location.label,
+      },
+    },
+  });
 });
 
 app.get("/api/admin/data", requireAuth, async (_req, res, next) => {
@@ -632,6 +659,44 @@ function ensureUrlProtocol(url) {
     return url;
   }
   return `https://${url}`;
+}
+
+function resolveDefaultWeatherLocation() {
+  const resolved = { ...DEFAULT_WEATHER_LOCATION };
+
+  const latitude = parseCoordinate(process.env.DEFAULT_WEATHER_LATITUDE, -90, 90);
+  if (latitude != null) {
+    resolved.latitude = latitude;
+  }
+
+  const longitude = parseCoordinate(process.env.DEFAULT_WEATHER_LONGITUDE, -180, 180);
+  if (longitude != null) {
+    resolved.longitude = longitude;
+  }
+
+  const label =
+    typeof process.env.DEFAULT_WEATHER_LABEL === "string"
+      ? process.env.DEFAULT_WEATHER_LABEL.trim()
+      : "";
+  if (label) {
+    resolved.label = label;
+  }
+
+  return resolved;
+}
+
+function parseCoordinate(value, min, max) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (numeric < min || numeric > max) {
+    return null;
+  }
+  return numeric;
 }
 
 function createDefaultData() {

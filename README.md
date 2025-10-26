@@ -71,8 +71,15 @@
 
 - 服务默认监听宿主机 `3000` 端口，可在 `docker-compose.yml` 中调整端口映射或 `PORT` 环境变量。
 - 命名卷 `navigation_data` 会持久化 `/app/data` 下的导航配置与后台密码，镜像重建时数据不会丢失。
+- 可通过 `DEFAULT_WEATHER_LATITUDE`、`DEFAULT_WEATHER_LONGITUDE` 与 `DEFAULT_WEATHER_LABEL` 环境变量自定义未授权定位时使用的默认天气位置，Docker Compose 示例已默认填充，可按需修改。
 - `docker-compose.yml` 中预设 `mem_limit`、`mem_reservation` 与 `cpus`，默认限制为 0.5 核、512MiB 上限及 128MiB 预留，可按实际资源情况调整。
 - 更新代码后重新运行 `docker compose build` 与 `docker compose up -d` 以应用最新版本。
+
+## 运行时配置
+
+- `DEFAULT_WEATHER_LATITUDE`：默认纬度，范围 -90 ~ 90，默认值 `39.9042`
+- `DEFAULT_WEATHER_LONGITUDE`：默认经度，范围 -180 ~ 180，默认值 `116.4074`
+- `DEFAULT_WEATHER_LABEL`：天气信息显示时使用的地点名称，默认值 `北京`
 
 ## 数据管理
 
