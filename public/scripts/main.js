@@ -91,6 +91,12 @@ const defaultLocation = {
   label: "北京",
 };
 
+const runtimeConfig = {
+  weather: {
+    defaultLocation: { ...defaultLocation },
+  },
+};
+
 const appsEmptyDefault = appsEmpty ? appsEmpty.textContent : "";
 const bookmarksEmptyDefault = bookmarksEmpty ? bookmarksEmpty.textContent : "";
 
@@ -767,16 +773,69 @@ async function loadYiyanQuote() {
   }
 }
 
+function normaliseWeatherLocation(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const latitude = Number(raw.latitude);
+  const longitude = Number(raw.longitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    return null;
+  }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return null;
+  }
+  const label = typeof raw.label === "string" ? raw.label.trim() : "";
+  return {
+    latitude,
+    longitude,
+    label: label || defaultLocation.label,
+  };
+}
+
+function getDefaultWeatherLocation() {
+  const location = normaliseWeatherLocation(runtimeConfig.weather?.defaultLocation);
+  if (location) {
+    runtimeConfig.weather.defaultLocation = location;
+    return location;
+  }
+  const fallback = { ...defaultLocation };
+  runtimeConfig.weather.defaultLocation = fallback;
+  return fallback;
+}
+
+async function loadRuntimeConfig() {
+  if (typeof fetch !== "function") {
+    return runtimeConfig.weather.defaultLocation;
+  }
+  try {
+    const response = await fetch("/api/config", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("配置请求失败");
+    }
+    const payload = await response.json();
+    const location = normaliseWeatherLocation(payload?.weather?.defaultLocation);
+    if (location) {
+      runtimeConfig.weather.defaultLocation = location;
+    }
+  } catch (error) {
+    console.error("运行时配置加载失败", error);
+  }
+  return runtimeConfig.weather.defaultLocation;
+}
+
 function loadWeather() {
   if (!weatherElement) return;
 
   const timer = setTimeout(() => {
-    updateWeather(defaultLocation.latitude, defaultLocation.longitude, defaultLocation.label);
+    const fallback = getDefaultWeatherLocation();
+    updateWeather(fallback.latitude, fallback.longitude, fallback.label);
   }, 4000);
 
   if (!navigator.geolocation) {
     clearTimeout(timer);
-    updateWeather(defaultLocation.latitude, defaultLocation.longitude, defaultLocation.label);
+    const fallback = getDefaultWeatherLocation();
+    updateWeather(fallback.latitude, fallback.longitude, fallback.label);
     return;
   }
 
@@ -788,7 +847,8 @@ function loadWeather() {
     },
     () => {
       clearTimeout(timer);
-      updateWeather(defaultLocation.latitude, defaultLocation.longitude, defaultLocation.label);
+      const fallback = getDefaultWeatherLocation();
+      updateWeather(fallback.latitude, fallback.longitude, fallback.label);
     },
     { maximumAge: 60_000, timeout: 5000 }
   );
@@ -796,9 +856,14 @@ function loadWeather() {
 
 async function updateWeather(latitude, longitude, label = "") {
   try {
+    const latitudeValue = Number(latitude);
+    const longitudeValue = Number(longitude);
+    if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
+      throw new Error("无效的经纬度信息");
+    }
     const params = new URLSearchParams({
-      latitude: latitude.toString(),
-      longitude: longitude.toString(),
+      latitude: latitudeValue.toString(),
+      longitude: longitudeValue.toString(),
       current_weather: "true",
       timezone: "auto",
     });
@@ -813,8 +878,13 @@ async function updateWeather(latitude, longitude, label = "") {
 
     const { temperature, weathercode } = data.current_weather;
     const description = weatherCodeToText(weathercode);
-    const locationLabel = label ? `${label} · ` : "";
-    weatherElement.textContent = `${locationLabel}${description} ${Math.round(temperature)}°C`;
+    const temperatureValue = Number(temperature);
+    const temperatureText = Number.isFinite(temperatureValue)
+      ? ` ${Math.round(temperatureValue)}°C`
+      : "";
+    const resolvedLabel = label || getDefaultWeatherLocation().label || "";
+    const locationLabel = resolvedLabel ? `${resolvedLabel} · ` : "";
+    weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
   } catch (error) {
     console.error("天气数据获取失败", error);
     weatherElement.textContent = "天气信息暂不可用";
@@ -875,7 +945,7 @@ function handleBackToTopVisibility() {
   }
 }
 
-function initialise() {
+async function initialise() {
   updateDocumentTitle(DEFAULT_SITE_SETTINGS.siteName);
   updateFavicon(DEFAULT_SITE_SETTINGS.siteLogo, DEFAULT_SITE_SETTINGS.siteName);
   updateFooter(DEFAULT_SITE_SETTINGS.footer);
@@ -885,9 +955,12 @@ function initialise() {
   }
   updateClock();
   setInterval(updateClock, 1_000);
+
+  const runtimeConfigPromise = loadRuntimeConfig();
+
   loadData();
-  loadWeather();
   loadYiyanQuote();
+
   if (backToTopButton) {
     backToTopButton.addEventListener("click", (event) => {
       event.preventDefault();
@@ -956,6 +1029,9 @@ function initialise() {
     });
   }
   updateSearchControls();
+
+  await runtimeConfigPromise.catch(() => {});
+  loadWeather();
 }
 
 if (document.readyState === "loading") {
