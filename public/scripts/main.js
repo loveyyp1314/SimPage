@@ -36,6 +36,20 @@ const collectionPanels = {
   bookmarks: bookmarksPanel,
 };
 
+function replaceChildrenSafe(target, ...nodes) {
+  if (!target) return;
+  if (typeof target.replaceChildren === "function") {
+    target.replaceChildren(...nodes);
+    return;
+  }
+  target.innerHTML = "";
+  nodes.forEach((node) => {
+    if (node) {
+      target.appendChild(node);
+    }
+  });
+}
+
 const defaultDocumentTitle = document.title || "SimPage";
 const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "SimPage";
 const DEFAULT_SITE_SETTINGS = {
@@ -419,9 +433,8 @@ function renderApps(items, options = {}) {
 function renderTileGrid(container, emptyHint, items, { emptyMessage, defaultMessage } = {}) {
   if (!container || !emptyHint) return;
 
-  container.innerHTML = "";
-
   if (!Array.isArray(items) || !items.length) {
+    replaceChildrenSafe(container);
     emptyHint.hidden = false;
     if (emptyMessage) {
       emptyHint.textContent = emptyMessage;
@@ -432,17 +445,18 @@ function renderTileGrid(container, emptyHint, items, { emptyMessage, defaultMess
   }
 
   emptyHint.hidden = true;
+  const fragment = document.createDocumentFragment();
   for (const item of items) {
-    container.appendChild(createTile(item));
+    fragment.appendChild(createTile(item));
   }
+  replaceChildrenSafe(container, fragment);
 }
 
 function renderBookmarks(items, options = {}) {
   if (!bookmarksGrid || !bookmarksEmpty) return;
 
-  bookmarksGrid.innerHTML = "";
-
   if (!Array.isArray(items) || !items.length) {
+    replaceChildrenSafe(bookmarksGrid);
     bookmarksEmpty.hidden = false;
     if (options.emptyMessage) {
       bookmarksEmpty.textContent = options.emptyMessage;
@@ -454,6 +468,7 @@ function renderBookmarks(items, options = {}) {
 
   bookmarksEmpty.hidden = true;
   const groups = groupBookmarksByCategory(items);
+  const gridFragment = document.createDocumentFragment();
 
   groups.forEach((group) => {
     const groupElement = document.createElement("section");
@@ -471,13 +486,17 @@ function renderBookmarks(items, options = {}) {
     list.className = "grid";
     list.setAttribute("role", "list");
 
+    const tilesFragment = document.createDocumentFragment();
     group.items.forEach((item) => {
-      list.appendChild(createTile(item));
+      tilesFragment.appendChild(createTile(item));
     });
+    list.appendChild(tilesFragment);
 
     groupElement.appendChild(list);
-    bookmarksGrid.appendChild(groupElement);
+    gridFragment.appendChild(groupElement);
   });
+
+  replaceChildrenSafe(bookmarksGrid, gridFragment);
 }
 
 function groupBookmarksByCategory(items) {
