@@ -1,0 +1,450 @@
+[
+  {
+    "id": "beijing",
+    "name": "北京",
+    "province": "北京市",
+    "latitude": 39.9042,
+    "longitude": 116.4074
+  },
+  {
+    "id": "tianjin",
+    "name": "天津",
+    "province": "天津市",
+    "latitude": 39.1256,
+    "longitude": 117.1902
+  },
+  {
+    "id": "shanghai",
+    "name": "上海",
+    "province": "上海市",
+    "latitude": 31.2304,
+    "longitude": 121.4737
+  },
+  {
+    "id": "chongqing",
+    "name": "重庆",
+    "province": "重庆市",
+    "latitude": 29.563,
+    "longitude": 106.5516
+  },
+  {
+    "id": "shijiazhuang",
+    "name": "石家庄",
+    "province": "河北省",
+    "latitude": 38.0428,
+    "longitude": 114.5149
+  },
+  {
+    "id": "taiyuan",
+    "name": "太原",
+    "province": "山西省",
+    "latitude": 37.8706,
+    "longitude": 112.5489
+  },
+  {
+    "id": "hohhot",
+    "name": "呼和浩特",
+    "province": "内蒙古自治区",
+    "latitude": 40.8426,
+    "longitude": 111.7498
+  },
+  {
+    "id": "shenyang",
+    "name": "沈阳",
+    "province": "辽宁省",
+    "latitude": 41.8057,
+    "longitude": 123.4315
+  },
+  {
+    "id": "dalian",
+    "name": "大连",
+    "province": "辽宁省",
+    "latitude": 38.914,
+    "longitude": 121.6147
+  },
+  {
+    "id": "changchun",
+    "name": "长春",
+    "province": "吉林省",
+    "latitude": 43.8171,
+    "longitude": 125.3235
+  },
+  {
+    "id": "harbin",
+    "name": "哈尔滨",
+    "province": "黑龙江省",
+    "latitude": 45.8038,
+    "longitude": 126.5349
+  },
+  {
+    "id": "nanjing",
+    "name": "南京",
+    "province": "江苏省",
+    "latitude": 32.0603,
+    "longitude": 118.7969
+  },
+  {
+    "id": "suzhou",
+    "name": "苏州",
+    "province": "江苏省",
+    "latitude": 31.2989,
+    "longitude": 120.5853
+  },
+  {
+    "id": "wuxi",
+    "name": "无锡",
+    "province": "江苏省",
+    "latitude": 31.4912,
+    "longitude": 120.3119
+  },
+  {
+    "id": "hangzhou",
+    "name": "杭州",
+    "province": "浙江省",
+    "latitude": 30.2741,
+    "longitude": 120.1551
+  },
+  {
+    "id": "ningbo",
+    "name": "宁波",
+    "province": "浙江省",
+    "latitude": 29.8683,
+    "longitude": 121.544
+  },
+  {
+    "id": "wenzhou",
+    "name": "温州",
+    "province": "浙江省",
+    "latitude": 27.9949,
+    "longitude": 120.6994
+  },
+  {
+    "id": "shaoxing",
+    "name": "绍兴",
+    "province": "浙江省",
+    "latitude": 30.0299,
+    "longitude": 120.5802
+  },
+  {
+    "id": "hefei",
+    "name": "合肥",
+    "province": "安徽省",
+    "latitude": 31.8206,
+    "longitude": 117.2272
+  },
+  {
+    "id": "fuzhou",
+    "name": "福州",
+    "province": "福建省",
+    "latitude": 26.0745,
+    "longitude": 119.2965
+  },
+  {
+    "id": "xiamen",
+    "name": "厦门",
+    "province": "福建省",
+    "latitude": 24.4798,
+    "longitude": 118.0894
+  },
+  {
+    "id": "quanzhou",
+    "name": "泉州",
+    "province": "福建省",
+    "latitude": 24.8741,
+    "longitude": 118.6759
+  },
+  {
+    "id": "nanchang",
+    "name": "南昌",
+    "province": "江西省",
+    "latitude": 28.682,
+    "longitude": 115.8579
+  },
+  {
+    "id": "jinan",
+    "name": "济南",
+    "province": "山东省",
+    "latitude": 36.6512,
+    "longitude": 117.1201
+  },
+  {
+    "id": "qingdao",
+    "name": "青岛",
+    "province": "山东省",
+    "latitude": 36.0662,
+    "longitude": 120.3826
+  },
+  {
+    "id": "yantai",
+    "name": "烟台",
+    "province": "山东省",
+    "latitude": 37.4638,
+    "longitude": 121.4479
+  },
+  {
+    "id": "zhengzhou",
+    "name": "郑州",
+    "province": "河南省",
+    "latitude": 34.7466,
+    "longitude": 113.6254
+  },
+  {
+    "id": "luoyang",
+    "name": "洛阳",
+    "province": "河南省",
+    "latitude": 34.6197,
+    "longitude": 112.454
+  },
+  {
+    "id": "wuhan",
+    "name": "武汉",
+    "province": "湖北省",
+    "latitude": 30.5928,
+    "longitude": 114.3055
+  },
+  {
+    "id": "changsha",
+    "name": "长沙",
+    "province": "湖南省",
+    "latitude": 28.2282,
+    "longitude": 112.9388
+  },
+  {
+    "id": "guangzhou",
+    "name": "广州",
+    "province": "广东省",
+    "latitude": 23.1291,
+    "longitude": 113.2644
+  },
+  {
+    "id": "shenzhen",
+    "name": "深圳",
+    "province": "广东省",
+    "latitude": 22.5431,
+    "longitude": 114.0579
+  },
+  {
+    "id": "zhuhai",
+    "name": "珠海",
+    "province": "广东省",
+    "latitude": 22.2707,
+    "longitude": 113.5767
+  },
+  {
+    "id": "foshan",
+    "name": "佛山",
+    "province": "广东省",
+    "latitude": 23.022,
+    "longitude": 113.1214
+  },
+  {
+    "id": "dongguan",
+    "name": "东莞",
+    "province": "广东省",
+    "latitude": 23.0207,
+    "longitude": 113.7518
+  },
+  {
+    "id": "zhongshan",
+    "name": "中山",
+    "province": "广东省",
+    "latitude": 22.5176,
+    "longitude": 113.3928
+  },
+  {
+    "id": "shantou",
+    "name": "汕头",
+    "province": "广东省",
+    "latitude": 23.3535,
+    "longitude": 116.6819
+  },
+  {
+    "id": "nanning",
+    "name": "南宁",
+    "province": "广西壮族自治区",
+    "latitude": 22.817,
+    "longitude": 108.3669
+  },
+  {
+    "id": "guilin",
+    "name": "桂林",
+    "province": "广西壮族自治区",
+    "latitude": 25.2736,
+    "longitude": 110.29
+  },
+  {
+    "id": "haikou",
+    "name": "海口",
+    "province": "海南省",
+    "latitude": 20.044,
+    "longitude": 110.1999
+  },
+  {
+    "id": "sanya",
+    "name": "三亚",
+    "province": "海南省",
+    "latitude": 18.2528,
+    "longitude": 109.5119
+  },
+  {
+    "id": "chengdu",
+    "name": "成都",
+    "province": "四川省",
+    "latitude": 30.5728,
+    "longitude": 104.0668
+  },
+  {
+    "id": "mianyang",
+    "name": "绵阳",
+    "province": "四川省",
+    "latitude": 31.464,
+    "longitude": 104.6783
+  },
+  {
+    "id": "guiyang",
+    "name": "贵阳",
+    "province": "贵州省",
+    "latitude": 26.647,
+    "longitude": 106.6302
+  },
+  {
+    "id": "kunming",
+    "name": "昆明",
+    "province": "云南省",
+    "latitude": 25.0389,
+    "longitude": 102.7183
+  },
+  {
+    "id": "dali",
+    "name": "大理",
+    "province": "云南省",
+    "latitude": 25.6065,
+    "longitude": 100.2676
+  },
+  {
+    "id": "lijiang",
+    "name": "丽江",
+    "province": "云南省",
+    "latitude": 26.855,
+    "longitude": 100.2278
+  },
+  {
+    "id": "lhasa",
+    "name": "拉萨",
+    "province": "西藏自治区",
+    "latitude": 29.6469,
+    "longitude": 91.1145
+  },
+  {
+    "id": "xian",
+    "name": "西安",
+    "province": "陕西省",
+    "latitude": 34.3416,
+    "longitude": 108.9398
+  },
+  {
+    "id": "lanzhou",
+    "name": "兰州",
+    "province": "甘肃省",
+    "latitude": 36.0611,
+    "longitude": 103.8343
+  },
+  {
+    "id": "xining",
+    "name": "西宁",
+    "province": "青海省",
+    "latitude": 36.6171,
+    "longitude": 101.7787
+  },
+  {
+    "id": "yinchuan",
+    "name": "银川",
+    "province": "宁夏回族自治区",
+    "latitude": 38.4872,
+    "longitude": 106.2309
+  },
+  {
+    "id": "urumqi",
+    "name": "乌鲁木齐",
+    "province": "新疆维吾尔自治区",
+    "latitude": 43.8256,
+    "longitude": 87.6168
+  },
+  {
+    "id": "kashgar",
+    "name": "喀什",
+    "province": "新疆维吾尔自治区",
+    "latitude": 39.4704,
+    "longitude": 75.9898
+  },
+  {
+    "id": "turpan",
+    "name": "吐鲁番",
+    "province": "新疆维吾尔自治区",
+    "latitude": 42.9489,
+    "longitude": 89.178
+  },
+  {
+    "id": "hong-kong",
+    "name": "香港",
+    "province": "香港特别行政区",
+    "latitude": 22.3193,
+    "longitude": 114.1694
+  },
+  {
+    "id": "macau",
+    "name": "澳门",
+    "province": "澳门特别行政区",
+    "latitude": 22.1987,
+    "longitude": 113.5439
+  },
+  {
+    "id": "taipei",
+    "name": "台北",
+    "province": "台湾省",
+    "latitude": 25.0329,
+    "longitude": 121.5654
+  },
+  {
+    "id": "taichung",
+    "name": "台中",
+    "province": "台湾省",
+    "latitude": 24.1477,
+    "longitude": 120.6736
+  },
+  {
+    "id": "tainan",
+    "name": "台南",
+    "province": "台湾省",
+    "latitude": 23.1252,
+    "longitude": 120.4473
+  },
+  {
+    "id": "kaohsiung",
+    "name": "高雄",
+    "province": "台湾省",
+    "latitude": 22.6273,
+    "longitude": 120.3014
+  },
+  {
+    "id": "hualien",
+    "name": "花莲",
+    "province": "台湾省",
+    "latitude": 23.9872,
+    "longitude": 121.6015
+  },
+  {
+    "id": "changzhou",
+    "name": "常州",
+    "province": "江苏省",
+    "latitude": 31.8107,
+    "longitude": 119.9739
+  },
+  {
+    "id": "nantong",
+    "name": "南通",
+    "province": "江苏省",
+    "latitude": 31.9802,
+    "longitude": 120.8943
+  }
+]
