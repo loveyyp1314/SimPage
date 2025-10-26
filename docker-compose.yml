@@ -1,0 +1,32 @@
+version: "2.4"
+
+services:
+  navigation:
+    container_name: modern-navigation
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: modern-navigation:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - navigation_data:/app/data
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: 0.5
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3000)).then(res => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1));\""
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  navigation_data:
+    driver: local

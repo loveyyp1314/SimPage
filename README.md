@@ -30,6 +30,41 @@
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
 > 天气信息通过 [open-meteo](https://open-meteo.com/) 公共接口获取，默认定位北京，可在浏览器授权后使用当前定位。
 
+## Docker Compose 部署
+
+项目附带精简的 Docker 部署方案，镜像基于 `node:20-alpine` 构建，仅安装生产依赖并启用健康检查，以在保证性能的前提下降低资源占用。
+
+1. 手动构建镜像：
+   ```bash
+   docker compose build
+   ```
+   如需强制刷新依赖，可追加 `--no-cache`。
+
+2. 后台启动服务：
+   ```bash
+   docker compose up -d
+   ```
+   若仍使用旧版 `docker-compose`，可替换为 `docker-compose up -d`。
+
+3. 查看运行日志：
+   ```bash
+   docker compose logs -f navigation
+   ```
+
+4. 停止容器（保留数据）：
+   ```bash
+   docker compose down
+   ```
+
+以上命令同样适用于旧版 `docker-compose` CLI，只需将 `docker compose` 替换为 `docker-compose`。
+
+部署配置要点：
+
+- 服务默认监听宿主机 `3000` 端口，可在 `docker-compose.yml` 中调整端口映射或 `PORT` 环境变量。
+- 命名卷 `navigation_data` 会持久化 `/app/data` 下的导航配置与后台密码，镜像重建时数据不会丢失。
+- `docker-compose.yml` 中预设 `mem_limit`、`mem_reservation` 与 `cpus`，默认限制为 0.5 核、512MiB 上限及 128MiB 预留，可按实际资源情况调整。
+- 更新代码后重新运行 `docker compose build` 与 `docker compose up -d` 以应用最新版本。
+
 ## 数据管理
 
 - 导航数据位于 `data/navigation.json`，结构示例：
