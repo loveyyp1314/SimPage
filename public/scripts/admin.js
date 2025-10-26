@@ -76,6 +76,8 @@ const PASSWORD_ENDPOINT = "/api/admin/password";
 
 const defaultDocumentTitle = document.title || "导航后台编辑";
 const defaultFaviconHref = faviconLink?.getAttribute("href") || "data:,";
+const defaultFaviconType = faviconLink?.getAttribute("type") || "";
+const defaultFaviconSizes = faviconLink?.getAttribute("sizes") || "";
 const DEFAULT_FAVICON_SYMBOL = "🧭";
 const ADMIN_TITLE_SUFFIX = " · 后台管理";
 const faviconCache = new Map();
@@ -506,6 +508,25 @@ function updateDocumentTitle(siteName) {
   document.title = clean ? `${clean}${ADMIN_TITLE_SUFFIX}` : defaultDocumentTitle;
 }
 
+function applyDefaultFavicon() {
+  if (!faviconLink) return false;
+  if (!defaultFaviconHref || defaultFaviconHref === "data:,") {
+    return false;
+  }
+  faviconLink.href = defaultFaviconHref;
+  if (defaultFaviconType) {
+    faviconLink.setAttribute("type", defaultFaviconType);
+  } else {
+    faviconLink.removeAttribute("type");
+  }
+  if (defaultFaviconSizes) {
+    faviconLink.setAttribute("sizes", defaultFaviconSizes);
+  } else {
+    faviconLink.removeAttribute("sizes");
+  }
+  return true;
+}
+
 function updateFavicon(rawValue, siteName) {
   if (!faviconLink) return;
   const cleanValue = typeof rawValue === "string" ? rawValue.trim() : "";
@@ -525,6 +546,10 @@ function updateFavicon(rawValue, siteName) {
       faviconLink.setAttribute("sizes", "64x64");
       return;
     }
+  }
+
+  if (applyDefaultFavicon()) {
+    return;
   }
 
   const fallbackUrl = createEmojiFavicon(deriveFaviconSymbol(siteName));
