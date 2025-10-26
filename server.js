@@ -14,6 +14,10 @@ const DEFAULT_SETTINGS = {
   footer: "",
 };
 
+const DEFAULT_STATS = {
+  visitorCount: 0,
+};
+
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 const SESSION_TTL = 12 * 60 * 60 * 1000; // 12 小时
 const CLEANUP_INTERVAL = 60 * 60 * 1000;
@@ -62,7 +66,7 @@ app.post("/api/login", async (req, res, next) => {
 
 app.get("/api/data", async (_req, res, next) => {
   try {
-    const data = await readData();
+    const data = await incrementVisitorCountAndReadData();
     res.json(data);
   } catch (error) {
     next(error);
@@ -167,6 +171,25 @@ async function readData() {
   return sanitiseData(fullData);
 }
 
+async function incrementVisitorCountAndReadData() {
+  const fullData = await readFullData();
+  const currentCount =
+    typeof fullData.stats?.visitorCount === "number" && Number.isFinite(fullData.stats.visitorCount)
+      ? Math.max(0, Math.floor(fullData.stats.visitorCount))
+      : DEFAULT_STATS.visitorCount;
+  const nextVisitorCount = currentCount + 1;
+  const updatedData = {
+    settings: fullData.settings,
+    apps: fullData.apps,
+    bookmarks: fullData.bookmarks,
+    stats: { visitorCount: nextVisitorCount },
+    admin: fullData.admin,
+  };
+
+  await writeFullData(updatedData);
+  return sanitiseData(updatedData);
+}
+
 async function readFullData() {
   let parsed;
   try {
@@ -198,6 +221,7 @@ async function writeFullData(fullData) {
     settings: fullData.settings,
     apps: fullData.apps,
     bookmarks: fullData.bookmarks,
+    stats: fullData.stats,
     admin: fullData.admin,
   };
   await fs.writeFile(DATA_FILE, JSON.stringify(payload, null, 2), "utf8");
@@ -208,6 +232,7 @@ function normaliseFullData(raw) {
     settings: buildSettingsFromFile(raw.settings),
     apps: Array.isArray(raw.apps) ? raw.apps : [],
     bookmarks: Array.isArray(raw.bookmarks) ? raw.bookmarks : [],
+    stats: { ...DEFAULT_STATS },
     admin: null,
   };
 
@@ -225,6 +250,10 @@ function normaliseFullData(raw) {
   result.admin = adminInfo.value;
   mutated = mutated || adminInfo.mutated;
   passwordReset = adminInfo.passwordReset;
+
+  const statsInfo = normaliseStatsFromFile(raw.stats);
+  result.stats = statsInfo.value;
+  mutated = mutated || statsInfo.mutated;
 
   if (!raw.settings || typeof raw.settings !== "object") {
     mutated = true;
@@ -264,6 +293,22 @@ function normaliseAdminFromFile(rawAdmin) {
   return { value: credentials, mutated: true, passwordReset: true };
 }
 
+function normaliseStatsFromFile(rawStats) {
+  const fallback = { ...DEFAULT_STATS };
+  if (!rawStats || typeof rawStats !== "object") {
+    return { value: fallback, mutated: true };
+  }
+  const numericVisitorCount = Number(rawStats.visitorCount);
+  if (!Number.isFinite(numericVisitorCount) || numericVisitorCount < 0) {
+    return { value: fallback, mutated: true };
+  }
+  const normalisedVisitorCount = Math.floor(numericVisitorCount);
+  const value = { visitorCount: normalisedVisitorCount };
+  const mutated =
+    typeof rawStats.visitorCount !== "number" || normalisedVisitorCount !== numericVisitorCount;
+  return { value, mutated };
+}
+
 function normaliseFooterValue(value) {
   if (typeof value !== "string") {
     return "";
@@ -297,6 +342,10 @@ function sanitiseData(fullData) {
     settings: { ...fullData.settings },
     apps: fullData.apps.map((item) => ({ ...item })),
     bookmarks: fullData.bookmarks.map((item) => ({ ...item })),
+    visitorCount:
+      typeof fullData.stats?.visitorCount === "number"
+        ? fullData.stats.visitorCount
+        : DEFAULT_STATS.visitorCount,
   };
 }
 
@@ -316,6 +365,7 @@ async function handleDataUpdate(req, res, next) {
       settings: normalisedSettings,
       apps: normalisedApps,
       bookmarks: normalisedBookmarks,
+      stats: existing.stats,
       admin: existing.admin,
     };
 
@@ -386,6 +436,7 @@ async function handlePasswordUpdate(req, res, next) {
       settings: fullData.settings,
       apps: fullData.apps,
       bookmarks: fullData.bookmarks,
+      stats: fullData.stats,
       admin: { passwordHash, passwordSalt },
     };
 
@@ -486,6 +537,7 @@ function createDefaultData() {
   const admin = createDefaultAdminCredentials();
   return {
     settings: { ...DEFAULT_SETTINGS },
+    stats: { ...DEFAULT_STATS },
     apps: [
       {
         id: randomUUID(),

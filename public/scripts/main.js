@@ -27,6 +27,8 @@ const searchFeedback = document.getElementById("local-search-feedback");
 const backToTopButton = document.getElementById("back-to-top");
 const footerElement = document.getElementById("site-footer");
 const footerContentElement = document.getElementById("site-footer-content");
+const footerMetaElement = document.getElementById("site-footer-meta");
+const visitorCountElement = document.getElementById("site-visitor-count");
 const faviconLink = document.getElementById("site-favicon");
 
 const collectionPanels = {
@@ -50,6 +52,9 @@ const BACK_TO_TOP_THRESHOLD = 320;
 
 let customGreeting = "";
 let yiyanMessage = "";
+let footerContentValue = "";
+let visitorCountKnown = false;
+let visitorCountValue = 0;
 
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -63,6 +68,8 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "numeric",
   weekday: "long",
 });
+
+const visitorCountFormatter = new Intl.NumberFormat("zh-CN");
 
 const defaultLocation = {
   latitude: 39.9042,
@@ -190,6 +197,7 @@ async function loadData() {
     const data = payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
 
     applySiteSettings(data?.settings);
+    updateVisitorCount(data?.visitorCount);
 
     originalData.apps = prepareCollection(data?.apps, "apps");
     originalData.bookmarks = prepareCollection(data?.bookmarks, "bookmarks");
@@ -297,13 +305,33 @@ function updateFavicon(rawValue, siteName) {
 function updateFooter(rawContent) {
   if (!footerElement || !footerContentElement) return;
   const clean = normaliseFooterValue(rawContent);
+  footerContentValue = clean;
   if (!clean) {
-    footerElement.hidden = true;
     footerContentElement.innerHTML = "";
-    return;
+    footerContentElement.setAttribute("hidden", "");
+  } else {
+    footerContentElement.innerHTML = renderMarkdown(clean);
+    footerContentElement.removeAttribute("hidden");
   }
-  footerContentElement.innerHTML = renderMarkdown(clean);
-  footerElement.hidden = false;
+  refreshFooterVisibility();
+}
+
+function updateVisitorCount(rawValue) {
+  if (!footerElement || !footerMetaElement || !visitorCountElement) return;
+  const numericValue = Number(rawValue);
+  visitorCountValue =
+    Number.isFinite(numericValue) && numericValue >= 0 ? Math.floor(numericValue) : 0;
+  visitorCountKnown = true;
+  visitorCountElement.textContent = visitorCountFormatter.format(visitorCountValue);
+  footerMetaElement.hidden = false;
+  refreshFooterVisibility();
+}
+
+function refreshFooterVisibility() {
+  if (!footerElement) return;
+  const hasContent = Boolean(footerContentValue);
+  const shouldShowFooter = hasContent || visitorCountKnown;
+  footerElement.hidden = !shouldShowFooter;
 }
 
 function deriveFaviconSymbol(siteName) {
