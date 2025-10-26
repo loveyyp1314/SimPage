@@ -7,12 +7,12 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "navigation.json");
 
-const DEFAULT_SETTINGS = {
+const BASE_DEFAULT_SETTINGS = Object.freeze({
   siteName: "SimPage",
   siteLogo: "",
   greeting: "",
   footer: "",
-};
+});
 
 const DEFAULT_STATS = {
   visitorCount: 0,
@@ -356,15 +356,16 @@ async function writeFullData(fullData, cacheInfo = { mutated: false, passwordRes
 }
 
 function normaliseFullData(raw) {
+  const settingsInfo = buildSettingsFromFile(raw.settings);
   const result = {
-    settings: buildSettingsFromFile(raw.settings),
+    settings: settingsInfo.value,
     apps: Array.isArray(raw.apps) ? raw.apps : [],
     bookmarks: Array.isArray(raw.bookmarks) ? raw.bookmarks : [],
     stats: { ...DEFAULT_STATS },
     admin: null,
   };
 
-  let mutated = false;
+  let mutated = settingsInfo.mutated;
   let passwordReset = false;
 
   if (!Array.isArray(raw.apps)) {
@@ -382,25 +383,6 @@ function normaliseFullData(raw) {
   const statsInfo = normaliseStatsFromFile(raw.stats);
   result.stats = statsInfo.value;
   mutated = mutated || statsInfo.mutated;
-
-  if (!raw.settings || typeof raw.settings !== "object") {
-    mutated = true;
-  } else {
-    const originalSettings = {
-      siteName: typeof raw.settings.siteName === "string" ? raw.settings.siteName.trim() : "",
-      siteLogo: typeof raw.settings.siteLogo === "string" ? raw.settings.siteLogo.trim() : "",
-      greeting: typeof raw.settings.greeting === "string" ? raw.settings.greeting.trim() : "",
-      footer: typeof raw.settings.footer === "string" ? raw.settings.footer.trim() : "",
-    };
-    if (
-      originalSettings.siteName !== result.settings.siteName ||
-      originalSettings.siteLogo !== result.settings.siteLogo ||
-      originalSettings.greeting !== result.settings.greeting ||
-      originalSettings.footer !== result.settings.footer
-    ) {
-      mutated = true;
-    }
-  }
 
   return { fullData: result, mutated, passwordReset };
 }
@@ -445,29 +427,146 @@ function normaliseFooterValue(value) {
   return normalised.trim() ? normalised : "";
 }
 
+function createDefaultWeatherLocationSetting() {
+  const defaults = runtimeConfig.weather?.defaultLocation || DEFAULT_WEATHER_LOCATION;
+  return {
+    id: "",
+    latitude: defaults.latitude,
+    longitude: defaults.longitude,
+    label: defaults.label,
+  };
+}
+
+function createDefaultSettings() {
+  const weatherLocation = createDefaultWeatherLocationSetting();
+  return {
+    ...BASE_DEFAULT_SETTINGS,
+    weatherLocation: { ...weatherLocation },
+  };
+}
+
+function normaliseWeatherLocationSetting(rawLocation) {
+  const fallback = createDefaultWeatherLocationSetting();
+  if (!rawLocation || typeof rawLocation !== "object") {
+    return { value: fallback, mutated: true };
+  }
+
+  let mutated = false;
+  const value = { ...fallback };
+
+  const idRaw = typeof rawLocation.id === "string" ? rawLocation.id : "";
+  const id = idRaw.trim();
+  if (id !== idRaw) {
+    mutated = true;
+  }
+  value.id = id;
+
+  const latitude = parseCoordinate(rawLocation.latitude, -90, 90);
+  if (latitude == null) {
+    mutated = true;
+  } else {
+    value.latitude = latitude;
+    if (rawLocation.latitude !== latitude) {
+      mutated = true;
+    }
+  }
+
+  const longitude = parseCoordinate(rawLocation.longitude, -180, 180);
+  if (longitude == null) {
+    mutated = true;
+  } else {
+    value.longitude = longitude;
+    if (rawLocation.longitude !== longitude) {
+      mutated = true;
+    }
+  }
+
+  const labelRaw = typeof rawLocation.label === "string" ? rawLocation.label : "";
+  const label = labelRaw.trim();
+  if (!label) {
+    mutated = true;
+  } else {
+    value.label = label;
+    if (label !== labelRaw) {
+      mutated = true;
+    }
+  }
+
+  return { value, mutated };
+}
+
+function normaliseWeatherLocationInput(rawLocation) {
+  return normaliseWeatherLocationSetting(rawLocation).value;
+}
+
 function buildSettingsFromFile(rawSettings) {
-  const settings = { ...DEFAULT_SETTINGS };
+  const defaults = createDefaultSettings();
   if (!rawSettings || typeof rawSettings !== "object") {
-    return settings;
+    return { value: defaults, mutated: true };
   }
-  if (typeof rawSettings.siteName === "string" && rawSettings.siteName.trim()) {
-    settings.siteName = rawSettings.siteName.trim();
+
+  let mutated = false;
+  const value = {
+    siteName: defaults.siteName,
+    siteLogo: defaults.siteLogo,
+    greeting: defaults.greeting,
+    footer: defaults.footer,
+    weatherLocation: defaults.weatherLocation,
+  };
+
+  const siteNameRaw = typeof rawSettings.siteName === "string" ? rawSettings.siteName : "";
+  const siteName = siteNameRaw.trim();
+  if (!siteName) {
+    mutated = true;
+  } else {
+    value.siteName = siteName;
+    if (siteName !== siteNameRaw) {
+      mutated = true;
+    }
   }
-  if (typeof rawSettings.siteLogo === "string") {
-    settings.siteLogo = rawSettings.siteLogo.trim();
+
+  const siteLogoRaw = typeof rawSettings.siteLogo === "string" ? rawSettings.siteLogo : "";
+  const siteLogo = siteLogoRaw.trim();
+  value.siteLogo = siteLogo;
+  if (siteLogo !== siteLogoRaw) {
+    mutated = true;
   }
-  if (typeof rawSettings.greeting === "string") {
-    settings.greeting = rawSettings.greeting.trim();
+
+  const greetingRaw = typeof rawSettings.greeting === "string" ? rawSettings.greeting : "";
+  const greeting = greetingRaw.trim();
+  value.greeting = greeting;
+  if (greeting !== greetingRaw) {
+    mutated = true;
   }
-  if (typeof rawSettings.footer === "string") {
-    settings.footer = normaliseFooterValue(rawSettings.footer);
+
+  const footerRaw = typeof rawSettings.footer === "string" ? rawSettings.footer : "";
+  const footer = normaliseFooterValue(footerRaw);
+  value.footer = footer;
+  if (footer !== footerRaw) {
+    mutated = true;
   }
-  return settings;
+
+  const weatherInfo = normaliseWeatherLocationSetting(rawSettings.weatherLocation);
+  value.weatherLocation = weatherInfo.value;
+  mutated = mutated || weatherInfo.mutated;
+
+  return { value, mutated };
 }
 
 function sanitiseData(fullData) {
+  const defaults = createDefaultSettings();
+  const sourceSettings =
+    fullData.settings && typeof fullData.settings === "object"
+      ? fullData.settings
+      : defaults;
+  const settings = {
+    ...defaults,
+    ...sourceSettings,
+  };
+  settings.weatherLocation = normaliseWeatherLocationSetting(sourceSettings.weatherLocation).value;
+
   return {
-    settings: { ...fullData.settings },
+    settings,
     apps: fullData.apps.map((item) => ({ ...item })),
     bookmarks: fullData.bookmarks.map((item) => ({ ...item })),
     visitorCount:
@@ -586,12 +685,14 @@ function normaliseSettingsInput(input) {
   const siteLogo = typeof input?.siteLogo === "string" ? input.siteLogo.trim() : "";
   const greeting = typeof input?.greeting === "string" ? input.greeting.trim() : "";
   const footer = normaliseFooterValue(input?.footer);
+  const weatherLocation = normaliseWeatherLocationInput(input?.weatherLocation);
 
   return {
     siteName,
     siteLogo,
     greeting,
     footer,
+    weatherLocation,
   };
 }
 
@@ -702,7 +803,7 @@ function parseCoordinate(value, min, max) {
 function createDefaultData() {
   const admin = createDefaultAdminCredentials();
   return {
-    settings: { ...DEFAULT_SETTINGS },
+    settings: createDefaultSettings(),
     stats: { ...DEFAULT_STATS },
     apps: [
       {

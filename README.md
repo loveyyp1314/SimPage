@@ -13,6 +13,7 @@
 - **后台编辑页面**：无需额外数据库，通过后台页面即可新增、修改或删除应用与书签条目。
 - **后台权限控制**：后台页面需密码登录（默认密码 `admin123`），密码信息保存在本地数据文件中，便于自定义。
 - **站点信息配置**：可在后台设置网站名称、Logo 以及概览区域下方的自定义问候语，前台实时同步展示。
+- **天气城市选择**：后台内置中国城市（含港澳台）列表，可直接指定天气数据展示城市，无需浏览器定位。
 - **书签分类提示**：录入书签时自动列出现有子分类，快速保持分类一致性。
 - **文件化存储**：导航数据保存在 `data/navigation.json` 文件中，便于备份、版本控制与离线修改。
 - **响应式与毛玻璃视觉**：延续灰白极简风格与毛玻璃效果，在桌面与移动端均有优秀的浏览体验。
@@ -37,7 +38,7 @@
    - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
-> 天气信息通过 [open-meteo](https://open-meteo.com/) 公共接口获取，默认定位北京，可在浏览器授权后使用当前定位。
+> 天气信息通过 [open-meteo](https://open-meteo.com/) 公共接口获取，由后台所选城市决定；若未配置则使用默认城市（可通过环境变量覆盖）。
 
 ## Docker Compose 部署
 
@@ -77,9 +78,9 @@
 
 ## 运行时配置
 
-- `DEFAULT_WEATHER_LATITUDE`：默认纬度，范围 -90 ~ 90，默认值 `39.9042`
-- `DEFAULT_WEATHER_LONGITUDE`：默认经度，范围 -180 ~ 180，默认值 `116.4074`
-- `DEFAULT_WEATHER_LABEL`：天气信息显示时使用的地点名称，默认值 `北京`
+- `DEFAULT_WEATHER_LATITUDE`：默认天气城市的纬度（后台未选择城市时使用），范围 -90 ~ 90，默认值 `39.9042`
+- `DEFAULT_WEATHER_LONGITUDE`：默认天气城市的经度（后台未选择城市时使用），范围 -180 ~ 180，默认值 `116.4074`
+- `DEFAULT_WEATHER_LABEL`：默认天气城市的展示名称（后台未选择城市时使用），默认值 `北京`
 
 ## 数据管理
 
@@ -89,7 +90,14 @@
     "settings": {
       "siteName": "SimPage",
       "siteLogo": "",
-      "greeting": ""
+      "greeting": "",
+      "footer": "",
+      "weatherLocation": {
+        "id": "beijing",
+        "label": "北京",
+        "latitude": 39.9042,
+        "longitude": 116.4074
+      }
     },
     "apps": [
       {
