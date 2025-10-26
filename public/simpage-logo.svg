@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="simpage-gradient" x1="64" y1="32" x2="256" y2="288" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7F5AF0" />
+      <stop offset="1" stop-color="#2CB1BC" />
+    </linearGradient>
+    <linearGradient id="simpage-fold" x1="224" y1="48" x2="288" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.86" />
+      <stop offset="1" stop-color="#DDF3FF" stop-opacity="0.94" />
+    </linearGradient>
+  </defs>
+  <path d="M96 48H208L256 96V224C256 259.346 227.346 288 192 288H96C60.6538 288 32 259.346 32 224V112C32 76.6538 60.6538 48 96 48Z" fill="url(#simpage-gradient)" />
+  <path d="M208 48V94C208 114.539 224.461 131 245 131H288L208 48Z" fill="url(#simpage-fold)" />
+  <circle cx="246" cy="104" r="18" fill="rgba(255, 255, 255, 0.9)" />
+  <path d="M240.5 102.5L250.5 107.5L240.5 112.5V102.5Z" fill="#2F7DDE" />
+  <path d="M135.3 162.3C132.67 160.67 131.87 157.2 133.5 154.57C140.99 142.48 154.49 135.5 170.47 135.5C178.9 135.5 186.59 137.23 193.62 140.64C196.51 142.03 197.72 145.49 196.33 148.38C194.94 151.27 191.48 152.48 188.59 151.09C183.31 148.56 177.57 147.3 170.47 147.3C158.63 147.3 148 152.47 142.61 161.32C140.97 163.95 137.5 164.75 135.3 162.3Z" fill="rgba(245, 249, 255, 0.88)" />
+  <path d="M120 206.5C120 178.567 143.034 157 176 157C189.729 157 201.592 160.411 210.809 166.645C213.339 168.36 214 171.77 212.285 174.3C210.569 176.83 207.159 177.492 204.629 175.776C197.395 170.867 188.173 168 177 168C153.383 168 135.657 183.341 135.657 206.5C135.657 229.659 153.383 245 177 245C188.173 245 197.395 242.133 204.629 237.224C207.159 235.508 210.569 236.17 212.285 238.7C214 241.23 213.339 244.64 210.809 246.355C201.592 252.589 189.729 256 176 256C143.034 256 120 234.433 120 206.5Z" fill="rgba(245, 249, 255, 0.92)" />
+  <text x="160" y="154" text-anchor="middle" font-family="'Poppins','Inter','Segoe UI',sans-serif" font-weight="600" font-size="64" fill="#FFFFFF">Sim</text>
+  <text x="160" y="210" text-anchor="middle" font-family="'Poppins','Inter','Segoe UI',sans-serif" font-weight="500" font-size="36" letter-spacing="0.12em" fill="rgba(255, 255, 255, 0.88)">PAGE</text>
+</svg>
