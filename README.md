@@ -25,7 +25,7 @@
    ```
 3. 在浏览器访问：
    - 前台导航页：[`http://localhost:3000/`](http://localhost:3000/)
-   - 后台编辑页：[`http://localhost:3000/admin.html`](http://localhost:3000/admin.html)
+   - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
 > 天气信息通过 [open-meteo](https://open-meteo.com/) 公共接口获取，默认定位北京，可在浏览器授权后使用当前定位。
