@@ -25,6 +25,68 @@ const AUTH_HEADER_PREFIX = "Bearer ";
 
 const activeSessions = new Map();
 
+const dataCache = {
+  fullData: null,
+  fileMeta: null,
+  loadPromise: null,
+  lastInfo: { mutated: false, passwordReset: false },
+};
+
+async function readDataFileMeta() {
+  try {
+    const stats = await fs.stat(DATA_FILE);
+    return {
+      mtimeMs: stats.mtimeMs,
+      size: stats.size,
+      inode: typeof stats.ino === "number" ? stats.ino : null,
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+function clearDataCache() {
+  dataCache.fullData = null;
+  dataCache.fileMeta = null;
+  dataCache.lastInfo = { mutated: false, passwordReset: false };
+}
+
+function setDataCache(fullData, meta, info = { mutated: false, passwordReset: false }) {
+  if (!meta) {
+    clearDataCache();
+    return;
+  }
+  dataCache.fullData = fullData;
+  dataCache.fileMeta = {
+    mtimeMs: meta.mtimeMs,
+    size: meta.size,
+    inode: typeof meta.inode === "number" ? meta.inode : null,
+  };
+  dataCache.lastInfo = info;
+}
+
+async function getCachedFullDataIfFresh() {
+  if (!dataCache.fullData || !dataCache.fileMeta) {
+    return null;
+  }
+  const meta = await readDataFileMeta();
+  if (!meta) {
+    clearDataCache();
+    return null;
+  }
+  const cachedMeta = dataCache.fileMeta;
+  const sameTimestamp = meta.mtimeMs === cachedMeta.mtimeMs;
+  const sameSize = meta.size === cachedMeta.size;
+  const sameInode =
+    cachedMeta.inode == null || meta.inode == null || meta.inode === cachedMeta.inode;
+
+  if (sameTimestamp && sameSize && sameInode) {
+    return dataCache.fullData;
+  }
+  clearDataCache();
+  return null;
+}
+
 const app = express();
 
 app.use(express.json({ limit: "1mb" }));
@@ -127,7 +189,7 @@ async function ensureDataFile() {
     await fs.access(DATA_FILE);
   } catch (_error) {
     const initialData = createDefaultData();
-    await fs.writeFile(DATA_FILE, JSON.stringify(initialData, null, 2), "utf8");
+    await writeFullData(initialData, { mutated: true, passwordReset: true });
     created = true;
   }
 
@@ -149,19 +211,28 @@ async function normaliseExistingFile() {
       parsed = JSON.parse(raw);
     } catch (_error) {
       const defaultData = createDefaultData();
-      await fs.writeFile(DATA_FILE, JSON.stringify(defaultData, null, 2), "utf8");
+      await writeFullData(defaultData, { mutated: true, passwordReset: true });
       return { passwordReset: true };
     }
 
     const { fullData, mutated, passwordReset } = normaliseFullData(parsed);
+    const cacheInfo = { mutated, passwordReset };
+
     if (mutated) {
-      await writeFullData(fullData);
+      await writeFullData(fullData, cacheInfo);
+    } else {
+      const meta = await readDataFileMeta();
+      if (meta) {
+        setDataCache(fullData, meta, cacheInfo);
+      } else {
+        clearDataCache();
+      }
     }
     return { passwordReset };
   } catch (error) {
     console.error("读取数据文件失败，将尝试恢复默认数据", error);
     const defaultData = createDefaultData();
-    await fs.writeFile(DATA_FILE, JSON.stringify(defaultData, null, 2), "utf8");
+    await writeFullData(defaultData, { mutated: true, passwordReset: true });
     return { passwordReset: true };
   }
 }
@@ -191,32 +262,55 @@ async function incrementVisitorCountAndReadData() {
 }
 
 async function readFullData() {
-  let parsed;
+  const cached = await getCachedFullDataIfFresh();
+  if (cached) {
+    return cached;
+  }
+
+  if (!dataCache.loadPromise) {
+    dataCache.loadPromise = (async () => {
+      let parsed;
+      try {
+        const raw = await fs.readFile(DATA_FILE, "utf8");
+        parsed = JSON.parse(raw);
+      } catch (error) {
+        console.error("数据文件损坏，将重置为默认数据", error);
+        const defaultData = createDefaultData();
+        await writeFullData(defaultData, { mutated: true, passwordReset: true });
+        announceDefaultPassword("数据文件已重置为默认，后台密码已重置为：admin123");
+        return defaultData;
+      }
+
+      const { fullData, mutated, passwordReset } = normaliseFullData(parsed);
+      const cacheInfo = { mutated, passwordReset };
+
+      if (mutated) {
+        await writeFullData(fullData, cacheInfo);
+      } else {
+        const meta = await readDataFileMeta();
+        if (meta) {
+          setDataCache(fullData, meta, cacheInfo);
+        } else {
+          clearDataCache();
+        }
+      }
+
+      if (passwordReset) {
+        announceDefaultPassword("后台密码缺失或无效，已重置为默认密码：admin123");
+      }
+
+      return fullData;
+    })();
+  }
+
   try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    console.error("数据文件损坏，将重置为默认数据", error);
-    const defaultData = createDefaultData();
-    await writeFullData(defaultData);
-    announceDefaultPassword("数据文件已重置为默认，后台密码已重置为：admin123");
-    return defaultData;
+    return await dataCache.loadPromise;
+  } finally {
+    dataCache.loadPromise = null;
   }
-
-  const { fullData, mutated, passwordReset } = normaliseFullData(parsed);
-
-  if (mutated) {
-    await writeFullData(fullData);
-  }
-
-  if (passwordReset) {
-    announceDefaultPassword("后台密码缺失或无效，已重置为默认密码：admin123");
-  }
-
-  return fullData;
 }
 
-async function writeFullData(fullData) {
+async function writeFullData(fullData, cacheInfo = { mutated: false, passwordReset: false }) {
   const payload = {
     settings: fullData.settings,
     apps: fullData.apps,
@@ -224,7 +318,14 @@ async function writeFullData(fullData) {
     stats: fullData.stats,
     admin: fullData.admin,
   };
-  await fs.writeFile(DATA_FILE, JSON.stringify(payload, null, 2), "utf8");
+  const serialised = JSON.stringify(payload, null, 2);
+  await fs.writeFile(DATA_FILE, serialised, "utf8");
+  const meta = await readDataFileMeta();
+  if (meta) {
+    setDataCache(fullData, meta, cacheInfo);
+  } else {
+    clearDataCache();
+  }
 }
 
 function normaliseFullData(raw) {

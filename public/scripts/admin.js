@@ -53,6 +53,20 @@ const typeLabels = {
   bookmarks: "书签",
 };
 
+function replaceChildrenSafe(target, ...nodes) {
+  if (!target) return;
+  if (typeof target.replaceChildren === "function") {
+    target.replaceChildren(...nodes);
+    return;
+  }
+  target.innerHTML = "";
+  nodes.forEach((node) => {
+    if (node) {
+      target.appendChild(node);
+    }
+  });
+}
+
 const STORAGE_KEY = "modern-navigation-admin-token";
 const DATA_ENDPOINT = "/api/admin/data";
 const LOGIN_ENDPOINT = "/api/login";
@@ -310,14 +324,13 @@ function render() {
 
 function renderList(type, container, items) {
   if (!container) return;
-  container.innerHTML = "";
 
   if (!Array.isArray(items) || !items.length) {
     const hint = document.createElement("p");
     hint.className = "empty-hint";
     hint.textContent =
       type === "apps" ? "暂无应用，点击上方按钮添加。" : "暂无书签，点击上方按钮添加。";
-    container.appendChild(hint);
+    replaceChildrenSafe(container, hint);
     return;
   }
 
@@ -343,19 +356,20 @@ function renderList(type, container, items) {
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
+  const rowsFragment = document.createDocumentFragment();
   items.forEach((item, index) => {
-    tbody.appendChild(buildTableRow(type, item, index, columns));
+    rowsFragment.appendChild(buildTableRow(type, item, index, columns));
   });
+  tbody.appendChild(rowsFragment);
   table.appendChild(tbody);
 
   scroller.appendChild(table);
   wrapper.appendChild(scroller);
-  container.appendChild(wrapper);
+  replaceChildrenSafe(container, wrapper);
 }
 
 function updateCategorySuggestions() {
   if (!categorySuggestions) return;
-  categorySuggestions.innerHTML = "";
   const categories = new Set();
   state.bookmarks.forEach((item) => {
     const label = typeof item.category === "string" ? item.category.trim() : "";
@@ -363,13 +377,15 @@ function updateCategorySuggestions() {
       categories.add(label);
     }
   });
+  const fragment = document.createDocumentFragment();
   Array.from(categories)
     .sort((a, b) => a.localeCompare(b, "zh-CN"))
     .forEach((label) => {
       const option = document.createElement("option");
       option.value = label;
-      categorySuggestions.appendChild(option);
+      fragment.appendChild(option);
     });
+  replaceChildrenSafe(categorySuggestions, fragment);
 }
 
 function getTableColumns(type) {
