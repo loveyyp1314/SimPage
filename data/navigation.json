@@ -5,8 +5,7 @@
     "greeting": "",
     "footer": "",
     "weather": {
-      "city": "北京",
-      "apiKey": "514e285319b249e8b0ec92ce794eecd2"
+      "city": "北京"
     }
   },
   "apps": [

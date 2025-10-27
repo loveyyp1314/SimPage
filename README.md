@@ -13,7 +13,7 @@
 - **后台编辑页面**：无需额外数据库，通过后台页面即可新增、修改或删除应用与书签条目。
 - **后台权限控制**：后台页面需密码登录（默认密码 `admin123`），密码信息保存在本地数据文件中，便于自定义。
 - **站点信息配置**：可在后台设置网站名称、Logo 以及概览区域下方的自定义问候语，前台实时同步展示。
-- **和风天气配置**：后台可直接填写和风天气支持的经纬度与地区 ID，灵活指定天气数据的展示位置。
+- **开放天气服务**：使用完全免费的 Open-Meteo API 获取天气信息，无需注册和 API Key，后台直接填写城市名称即可。
 - **书签分类提示**：录入书签时自动列出现有子分类，快速保持分类一致性。
 - **文件化存储**：导航数据保存在 `data/navigation.json` 文件中，便于备份、版本控制与离线修改。
 - **响应式与毛玻璃视觉**：延续灰白极简风格与毛玻璃效果，在桌面与移动端均有优秀的浏览体验。
@@ -38,7 +38,7 @@
    - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
-> 天气信息通过 [和风天气（QWeather）](https://dev.qweather.com/) API 获取，请在运行环境中配置 API Key（环境变量 `QWEATHER_API_KEY` 或 `HEWEATHER_API_KEY`），后台所选城市决定展示内容；若未配置则使用默认城市（可通过环境变量覆盖）。
+> 天气信息通过 [Open-Meteo](https://open-meteo.com/) 开源免费 API 获取，无需注册和 API Key，后台所选城市决定展示内容；若未配置则使用默认城市（可通过环境变量覆盖）。
 
 ## Docker Compose 部署
 
@@ -72,17 +72,14 @@
 
 - 服务默认监听宿主机 `3000` 端口，可在 `docker-compose.yml` 中调整端口映射或 `PORT` 环境变量。
 - 命名卷 `navigation_data` 会持久化 `/app/data` 下的导航配置与后台密码，镜像重建时数据不会丢失。
-- 可通过 `DEFAULT_WEATHER_LATITUDE`、`DEFAULT_WEATHER_LONGITUDE` 与 `DEFAULT_WEATHER_LABEL` 环境变量自定义未授权定位时使用的默认天气位置，Docker Compose 示例已默认填充，可按需修改。
-- 和风天气 API 调用需配置 `QWEATHER_API_KEY`（或 `HEWEATHER_API_KEY`）环境变量，Compose 模板已预留变量，可在 `.env` 文件或部署平台中填写实际密钥。
+- 可通过 `DEFAULT_WEATHER_CITY` 环境变量自定义默认天气城市，默认值为"北京"，Docker Compose 示例已默认填充，可按需修改。
+- 天气服务使用 Open-Meteo 开源免费 API，无需配置 API Key。
 - `docker-compose.yml` 中预设 `mem_limit`、`mem_reservation` 与 `cpus`，默认限制为 0.5 核、512MiB 上限及 128MiB 预留，可按实际资源情况调整。
 - 更新代码后重新运行 `docker compose build` 与 `docker compose up -d` 以应用最新版本。
 
 ## 运行时配置
 
-- `QWEATHER_API_KEY`：和风天气 API Key，用于请求实时天气数据；同样支持使用 `HEWEATHER_API_KEY` 作为兼容变量，未配置时前台会提示天气服务未启用。
-- `DEFAULT_WEATHER_LATITUDE`：默认天气城市的纬度（后台未选择城市时使用），范围 -90 ~ 90，默认值 `39.9042`
-- `DEFAULT_WEATHER_LONGITUDE`：默认天气城市的经度（后台未选择城市时使用），范围 -180 ~ 180，默认值 `116.4074`
-- `DEFAULT_WEATHER_LABEL`：默认天气城市的展示名称（后台未选择城市时使用），默认值 `北京`
+- `DEFAULT_WEATHER_CITY`：默认天气城市的名称（后台未选择城市时使用），默认值 `北京`
 
 ## 数据管理
 
@@ -94,11 +91,8 @@
       "siteLogo": "",
       "greeting": "",
       "footer": "",
-      "weatherLocation": {
-        "id": "beijing",
-        "label": "北京",
-        "latitude": 39.9042,
-        "longitude": 116.4074
+      "weather": {
+        "city": "北京"
       }
     },
     "apps": [

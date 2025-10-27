@@ -56,7 +56,6 @@ const WEATHER_HTTP_HEADERS = Object.freeze({
   "Accept-Encoding": "identity",
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 });
-const QWEATHER_API_KEY = resolveQWeatherApiKey();
 
 async function readDataFileMeta() {
   try {
@@ -177,12 +176,7 @@ app.get("/api/weather", async (_req, res, next) => {
       return;
     }
 
-    if (!config.apiKey) {
-      res.status(503).json({ success: false, message: "天气服务未配置，请联系管理员。" });
-      return;
-    }
-
-    const weather = await fetchQWeatherNow(config.city, config.apiKey);
+    const weather = await fetchOpenMeteoWeather(config.city);
     res.json({ success: true, data: { ...weather, city: config.city } });
   } catch (error) {
     if (error && error.expose) {
@@ -310,7 +304,6 @@ async function readAdminData() {
   const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
   data.settings.weather = {
     city: weather.city,
-    apiKey: weather.apiKey,
   };
   return data;
 }
@@ -476,7 +469,6 @@ function normaliseFooterValue(value) {
 function createDefaultWeatherSettings() {
   return {
     city: runtimeConfig.weather?.defaultCity || DEFAULT_WEATHER_CONFIG.city,
-    apiKey: "",
   };
 }
 
@@ -508,36 +500,16 @@ function extractWeatherCity(source) {
   return { value: "", mutated: false };
 }
 
-function extractWeatherApiKey(source) {
-  if (!source || typeof source !== "object") {
-    return { value: "", mutated: false };
-  }
-  const fields = ["apiKey", "key"];
-  for (const field of fields) {
-    if (typeof source[field] === "string") {
-      const raw = source[field];
-      const trimmed = raw.trim();
-      if (trimmed || raw) {
-        const mutated = trimmed !== raw || field !== "apiKey";
-        return { value: trimmed, mutated };
-      }
-    }
-  }
-  return { value: "", mutated: false };
-}
-
 function convertLegacyWeatherInput(legacy) {
   if (!legacy || typeof legacy !== "object") {
     return null;
   }
   const cityInfo = extractWeatherCity(legacy);
-  const apiKeyInfo = extractWeatherApiKey(legacy);
-  if (!cityInfo.value && !apiKeyInfo.value) {
+  if (!cityInfo.value) {
     return null;
   }
   return {
     city: cityInfo.value,
-    apiKey: apiKeyInfo.value,
   };
 }
 
@@ -567,21 +539,12 @@ function normaliseWeatherSettingsFromFile(rawSettings) {
       mutated = true;
     }
     mutated = mutated || cityInfo.mutated;
-
-    const apiKeyInfo = extractWeatherApiKey(source);
-    value.apiKey = apiKeyInfo.value;
-    mutated = mutated || apiKeyInfo.mutated;
   } else {
     mutated = true;
   }
 
   if (!value.city) {
     value.city = fallback.city;
-    mutated = true;
-  }
-
-  if (typeof value.apiKey !== "string") {
-    value.apiKey = "";
     mutated = true;
   }
 
@@ -597,13 +560,6 @@ function normaliseWeatherSettingsValue(input) {
       value.city = input.city.trim();
     } else if (typeof input.label === "string" && input.label.trim()) {
       value.city = input.label.trim();
-    }
-    if (typeof input.apiKey === "string") {
-      value.apiKey = input.apiKey.trim();
-    } else if (typeof input.key === "string") {
-      value.apiKey = input.key.trim();
-    } else {
-      value.apiKey = "";
     }
   }
 
@@ -631,11 +587,8 @@ function normaliseWeatherSettingsInput(rawWeather) {
     throw error;
   }
 
-  const apiKeyInfo = extractWeatherApiKey(source);
-
   return {
     city,
-    apiKey: apiKeyInfo.value,
   };
 }
 
@@ -950,44 +903,65 @@ function createWeatherError(message, statusCode = 502) {
   return error;
 }
 
-function resolveQWeatherErrorMessage(code) {
-  const mapping = {
-    "204": "暂时无该地区的天气数据，请稍后重试。",
-    "400": "天气服务请求参数无效。",
-    "401": "天气服务认证失败，请联系管理员。",
-    "402": "天气服务已超出调用额度，请稍后再试。",
-    "403": "天气服务权限不足。",
-    "404": "天气服务资源不存在。",
-    "429": "天气服务请求过于频繁，请稍后再试。",
-    "500": "天气服务暂时不可用，请稍后重试。",
-  };
-  const codeText =
-    typeof code === "string" && code.trim()
-      ? code.trim()
-      : typeof code === "number" && Number.isFinite(code)
-      ? String(code)
-      : "";
-  if (!codeText) {
-    return "天气服务获取失败，请稍后重试。";
+async function geocodeCity(cityName) {
+  const city = typeof cityName === "string" ? cityName.trim() : "";
+  if (!city) {
+    throw createWeatherError("城市名称无效。", 400);
   }
-  return mapping[codeText] || "天气服务获取失败，请稍后重试。";
+
+  const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+  url.searchParams.set("name", city);
+  url.searchParams.set("count", "1");
+  url.searchParams.set("language", "zh");
+  url.searchParams.set("format", "json");
+
+  try {
+    const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
+    if (!payload || typeof payload !== "object") {
+      throw createWeatherError("地理编码服务响应异常，请稍后重试。");
+    }
+
+    if (!payload.results || !Array.isArray(payload.results) || payload.results.length === 0) {
+      throw createWeatherError(`未找到城市"${city}"的地理位置信息，请检查城市名称。`, 404);
+    }
+
+    const result = payload.results[0];
+    const latitude = Number(result.latitude);
+    const longitude = Number(result.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw createWeatherError("地理位置信息无效。");
+    }
+
+    return {
+      latitude,
+      longitude,
+      name: result.name || city,
+    };
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      throw createWeatherError("地理编码服务请求超时，请稍后重试。", 504);
+    }
+    if (error && error.expose) {
+      throw error;
+    }
+    throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
+  }
 }
 
-async function fetchQWeatherNow(locationQuery, apiKey) {
-  const location = typeof locationQuery === "string" ? locationQuery.trim() : "";
-  if (!location) {
-    throw createWeatherError("天气服务位置无效。", 400);
-  }
-  const key = typeof apiKey === "string" ? apiKey.trim() : "";
-  if (!key) {
-    throw createWeatherError("天气服务未配置，请联系管理员。", 503);
+async function fetchOpenMeteoWeather(cityName) {
+  const city = typeof cityName === "string" ? cityName.trim() : "";
+  if (!city) {
+    throw createWeatherError("城市名称无效。", 400);
   }
 
-  const url = new URL("https://devapi.qweather.com/v7/weather/now");
-  url.searchParams.set("location", location);
-  url.searchParams.set("key", key);
-  url.searchParams.set("lang", "zh");
-  url.searchParams.set("unit", "m");
+  const location = await geocodeCity(city);
+
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude", String(location.latitude));
+  url.searchParams.set("longitude", String(location.longitude));
+  url.searchParams.set("current_weather", "true");
+  url.searchParams.set("timezone", "auto");
 
   try {
     const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
@@ -995,47 +969,23 @@ async function fetchQWeatherNow(locationQuery, apiKey) {
       throw createWeatherError("天气服务响应异常，请稍后重试。");
     }
 
-    const codeText =
-      typeof payload.code === "string" && payload.code.trim()
-        ? payload.code.trim()
-        : typeof payload.code === "number" && Number.isFinite(payload.code)
-        ? String(payload.code)
-        : "";
-
-    if (codeText !== "200" || !payload.now) {
-      const message = resolveQWeatherErrorMessage(codeText);
-      const statusCodeMap = {
-        "400": 400,
-        "401": 503,
-        "402": 503,
-        "403": 503,
-        "404": 404,
-        "429": 429,
-        "500": 503,
-      };
-      const statusCode = statusCodeMap[codeText] || 502;
-      throw createWeatherError(message, statusCode);
+    if (!payload.current_weather || typeof payload.current_weather !== "object") {
+      throw createWeatherError("天气数据格式异常，请稍后重试。");
     }
 
-    const description =
-      typeof payload.now.text === "string" && payload.now.text.trim()
-        ? payload.now.text.trim()
-        : "";
-    const temperatureValue = Number(payload.now.temp);
-    const feelsLikeValue = Number(payload.now.feelsLike);
-    const icon =
-      typeof payload.now.icon === "string" && payload.now.icon.trim() ? payload.now.icon.trim() : "";
-    const obsTime =
-      typeof payload.now.obsTime === "string" && payload.now.obsTime.trim()
-        ? payload.now.obsTime.trim()
-        : "";
+    const current = payload.current_weather;
+    const temperatureValue = Number(current.temperature);
+    const windspeedValue = Number(current.windspeed);
+    const weatherCode = Number(current.weathercode);
+
+    const weatherDescription = getWeatherDescription(weatherCode);
 
     return {
-      text: description,
+      text: weatherDescription,
       temperature: Number.isFinite(temperatureValue) ? temperatureValue : null,
-      feelsLike: Number.isFinite(feelsLikeValue) ? feelsLikeValue : null,
-      icon: icon || null,
-      obsTime: obsTime || null,
+      windspeed: Number.isFinite(windspeedValue) ? windspeedValue : null,
+      weathercode: Number.isFinite(weatherCode) ? weatherCode : null,
+      time: current.time || null,
     };
   } catch (error) {
     if (error && error.name === "AbortError") {
@@ -1046,6 +996,41 @@ async function fetchQWeatherNow(locationQuery, apiKey) {
     }
     throw createWeatherError("天气服务获取失败，请稍后重试。", 502);
   }
+}
+
+function getWeatherDescription(code) {
+  const weatherCodeMap = {
+    0: "晴天",
+    1: "晴朗",
+    2: "多云",
+    3: "阴天",
+    45: "雾",
+    48: "冻雾",
+    51: "小雨",
+    53: "中雨",
+    55: "大雨",
+    56: "小冻雨",
+    57: "冻雨",
+    61: "小雨",
+    63: "中雨",
+    65: "大雨",
+    66: "小冻雨",
+    67: "冻雨",
+    71: "小雪",
+    73: "中雪",
+    75: "大雪",
+    77: "雪粒",
+    80: "阵雨",
+    81: "中阵雨",
+    82: "大阵雨",
+    85: "小阵雪",
+    86: "大阵雪",
+    95: "雷雨",
+    96: "雷雨伴冰雹",
+    99: "雷雨伴大冰雹",
+  };
+
+  return weatherCodeMap[code] || "未知";
 }
 
 async function requestWeatherPayload(url, timeoutMs) {
@@ -1127,26 +1112,9 @@ async function resolveWeatherRequestConfig() {
   const fullData = await readFullData();
   const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
   const city = weather.city || runtimeConfig.weather.defaultCity || DEFAULT_WEATHER_CONFIG.city;
-  const storedKey = typeof weather.apiKey === "string" ? weather.apiKey.trim() : "";
-  const apiKey = storedKey || QWEATHER_API_KEY;
   return {
     city,
-    apiKey,
-    source: storedKey ? "settings" : apiKey ? "env" : "none",
   };
-}
-
-function resolveQWeatherApiKey() {
-  const candidates = [process.env.QWEATHER_API_KEY, process.env.HEWEATHER_API_KEY];
-  for (const candidate of candidates) {
-    if (typeof candidate === "string") {
-      const trimmed = candidate.trim();
-      if (trimmed) {
-        return trimmed;
-      }
-    }
-  }
-  return "";
 }
 
 function createDefaultData() {
