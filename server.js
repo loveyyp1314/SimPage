@@ -47,10 +47,14 @@ const runtimeConfig = {
 };
 
 const WEATHER_API_TIMEOUT_MS = 5_000;
-const WEATHER_FETCH_HEADERS = Object.freeze({ Accept: "application/json" });
+const WEATHER_FETCH_HEADERS = Object.freeze({ 
+  Accept: "application/json",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+});
 const WEATHER_HTTP_HEADERS = Object.freeze({
   Accept: "application/json",
   "Accept-Encoding": "identity",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 });
 const QWEATHER_API_KEY = resolveQWeatherApiKey();
 
