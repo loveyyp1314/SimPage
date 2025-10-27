@@ -52,18 +52,15 @@ function replaceChildrenSafe(target, ...nodes) {
 
 const defaultDocumentTitle = document.title || "SimPage";
 const defaultSiteName = siteNameElement?.textContent?.trim() || defaultDocumentTitle || "SimPage";
-const defaultLocation = {
-  id: "",
-  latitude: 39.9042,
-  longitude: 116.4074,
-  label: "北京",
+const defaultWeather = {
+  city: "北京",
 };
 const DEFAULT_SITE_SETTINGS = {
   siteName: defaultSiteName,
   siteLogo: "",
   greeting: "",
   footer: "",
-  weatherLocation: { ...defaultLocation },
+  weather: { ...defaultWeather },
 };
 
 const defaultFaviconHref = faviconLink?.getAttribute("href") || "data:,";
@@ -96,12 +93,12 @@ const visitorCountFormatter = new Intl.NumberFormat("zh-CN");
 
 const runtimeConfig = {
   weather: {
-    defaultLocation: { ...defaultLocation },
+    defaultCity: defaultWeather.city,
   },
 };
 
-let activeWeatherLocation = { ...runtimeConfig.weather.defaultLocation };
-let weatherLocationSource = "default";
+let activeWeather = { city: runtimeConfig.weather.defaultCity };
+let weatherSource = "default";
 let weatherRequestToken = 0;
 
 const appsEmptyDefault = appsEmpty ? appsEmpty.textContent : "";
@@ -256,7 +253,7 @@ function prepareCollection(collection, type) {
 function prepareSiteSettings(settings) {
   const prepared = {
     ...DEFAULT_SITE_SETTINGS,
-    weatherLocation: { ...DEFAULT_SITE_SETTINGS.weatherLocation },
+    weather: { ...DEFAULT_SITE_SETTINGS.weather },
   };
   if (!settings || typeof settings !== "object") {
     return prepared;
@@ -273,10 +270,17 @@ function prepareSiteSettings(settings) {
   if (typeof settings.footer === "string") {
     prepared.footer = normaliseFooterValue(settings.footer);
   }
-  const weatherLocation = normaliseWeatherLocation(settings.weatherLocation);
-  if (weatherLocation) {
-    prepared.weatherLocation = weatherLocation;
+
+  const weather = normaliseWeatherSetting(settings.weather);
+  if (weather) {
+    prepared.weather = weather;
+  } else if (settings.weatherLocation) {
+    const legacyWeather = normaliseWeatherSetting(settings.weatherLocation);
+    if (legacyWeather) {
+      prepared.weather = legacyWeather;
+    }
   }
+
   return prepared;
 }
 
@@ -291,7 +295,7 @@ function applySiteSettings(settings) {
   updateFavicon(prepared.siteLogo, prepared.siteName);
   updateGreetingDisplay();
   updateFooter(prepared.footer);
-  setActiveWeatherLocation(prepared.weatherLocation, { source: "settings" });
+  setActiveWeather(prepared.weather, { source: "settings" });
 }
 
 function updateDocumentTitle(siteName) {
@@ -811,42 +815,42 @@ async function loadYiyanQuote() {
   }
 }
 
-function normaliseWeatherLocation(raw) {
+function normaliseWeatherSetting(raw) {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed ? { city: trimmed } : null;
+  }
   if (!raw || typeof raw !== "object") {
     return null;
   }
-  const latitude = Number(raw.latitude);
-  const longitude = Number(raw.longitude);
-  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-    return null;
+  if (typeof raw.city === "string" && raw.city.trim()) {
+    return { city: raw.city.trim() };
   }
-  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-    return null;
+  if (typeof raw.label === "string" && raw.label.trim()) {
+    return { city: raw.label.trim() };
   }
-  const label = typeof raw.label === "string" ? raw.label.trim() : "";
-  const id = typeof raw.id === "string" ? raw.id.trim() : "";
-  return {
-    id,
-    latitude,
-    longitude,
-    label: label || defaultLocation.label,
-  };
+  if (typeof raw.name === "string" && raw.name.trim()) {
+    return { city: raw.name.trim() };
+  }
+  if (typeof raw.id === "string" && raw.id.trim()) {
+    return { city: raw.id.trim() };
+  }
+  return null;
 }
 
-function getDefaultWeatherLocation() {
-  const location = normaliseWeatherLocation(runtimeConfig.weather?.defaultLocation);
-  if (location) {
-    runtimeConfig.weather.defaultLocation = location;
-    return location;
-  }
-  const fallback = { ...defaultLocation };
-  runtimeConfig.weather.defaultLocation = fallback;
-  return fallback;
+function getDefaultWeather() {
+  const cityCandidate =
+    typeof runtimeConfig.weather?.defaultCity === "string"
+      ? runtimeConfig.weather.defaultCity.trim()
+      : "";
+  const city = cityCandidate || defaultWeather.city;
+  runtimeConfig.weather.defaultCity = city;
+  return { city };
 }
 
 async function loadRuntimeConfig() {
   if (typeof fetch !== "function") {
-    return runtimeConfig.weather.defaultLocation;
+    return runtimeConfig.weather.defaultCity;
   }
   try {
     const response = await fetch("/api/config", { cache: "no-store" });
@@ -854,86 +858,71 @@ async function loadRuntimeConfig() {
       throw new Error("配置请求失败");
     }
     const payload = await response.json();
-    const location = normaliseWeatherLocation(payload?.weather?.defaultLocation);
-    if (location) {
-      runtimeConfig.weather.defaultLocation = location;
-      if (weatherLocationSource !== "settings") {
-        setActiveWeatherLocation(location, { source: "default" });
+    const city =
+      typeof payload?.weather?.defaultCity === "string"
+        ? payload.weather.defaultCity.trim()
+        : "";
+    if (city) {
+      runtimeConfig.weather.defaultCity = city;
+      if (weatherSource !== "settings") {
+        setActiveWeather({ city }, { source: "default" });
       }
     }
   } catch (error) {
     console.error("运行时配置加载失败", error);
   }
-  return runtimeConfig.weather.defaultLocation;
+  return runtimeConfig.weather.defaultCity;
 }
 
-function locationsAreEqual(a, b) {
+function weathersAreEqual(a, b) {
   if (!a || !b) {
     return false;
   }
-  return (
-    Number(a.latitude) === Number(b.latitude) &&
-    Number(a.longitude) === Number(b.longitude) &&
-    (a.label || "") === (b.label || "") &&
-    (a.id || "") === (b.id || "")
-  );
+  return (a.city || "") === (b.city || "");
 }
 
-function updateActiveWeatherLocation(location) {
-  if (!location) {
+function updateActiveWeather(weather) {
+  if (!weather) {
     return;
   }
-  if (locationsAreEqual(activeWeatherLocation, location)) {
+  if (weathersAreEqual(activeWeather, weather)) {
     return;
   }
-  activeWeatherLocation = { ...location };
+  activeWeather = { city: weather.city };
   refreshWeatherDisplay();
 }
 
-function setActiveWeatherLocation(rawLocation, { source = "settings" } = {}) {
-  const location = normaliseWeatherLocation(rawLocation);
-  if (!location) {
+function setActiveWeather(rawWeather, { source = "settings" } = {}) {
+  const weather = normaliseWeatherSetting(rawWeather);
+  if (!weather) {
     if (source === "settings") {
-      weatherLocationSource = "default";
-      updateActiveWeatherLocation(getDefaultWeatherLocation());
+      weatherSource = "default";
+      updateActiveWeather(getDefaultWeather());
     }
     return;
   }
   if (source === "settings") {
-    weatherLocationSource = "settings";
-    updateActiveWeatherLocation(location);
+    weatherSource = "settings";
+    updateActiveWeather(weather);
     return;
   }
-  if (weatherLocationSource !== "settings") {
-    weatherLocationSource = "default";
-    updateActiveWeatherLocation(location);
+  if (weatherSource !== "settings") {
+    weatherSource = "default";
+    updateActiveWeather(weather);
   }
 }
 
 function refreshWeatherDisplay() {
   if (!weatherElement) return;
-  const location = activeWeatherLocation || getDefaultWeatherLocation();
-  if (!location) {
-    weatherElement.textContent = "天气信息暂不可用";
-    return;
-  }
-  updateWeather(location);
+  const weather = activeWeather && activeWeather.city ? activeWeather : getDefaultWeather();
+  updateWeather(weather);
 }
 
-async function updateWeather(location) {
+async function updateWeather(weather) {
   const requestToken = ++weatherRequestToken;
+  const city = typeof weather?.city === "string" ? weather.city.trim() : "";
   try {
-    const latitudeValue = Number(location?.latitude);
-    const longitudeValue = Number(location?.longitude);
-    if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
-      throw new Error("无效的经纬度信息");
-    }
-
-    const params = new URLSearchParams({
-      latitude: latitudeValue.toString(),
-      longitude: longitudeValue.toString(),
-    });
-    const response = await fetch(`/api/weather?${params.toString()}`);
+    const response = await fetch("/api/weather");
 
     let payload;
     try {
@@ -953,20 +942,22 @@ async function updateWeather(location) {
     const data =
       payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
 
+    if (requestToken !== weatherRequestToken) {
+      return;
+    }
+
     const descriptionRaw = typeof data?.text === "string" ? data.text.trim() : "";
     const description = descriptionRaw || "天气良好";
     const temperatureValue = Number(data?.temperature);
     const temperatureText = Number.isFinite(temperatureValue)
       ? ` ${Math.round(temperatureValue)}°C`
       : "";
+    const resolvedCity =
+      typeof data?.city === "string" && data.city.trim()
+        ? data.city.trim()
+        : city || getDefaultWeather().city;
 
-    if (requestToken !== weatherRequestToken) {
-      return;
-    }
-
-    const fallbackLocation = getDefaultWeatherLocation();
-    const resolvedLabel = location.label || fallbackLocation.label || "";
-    const locationLabel = resolvedLabel ? `${resolvedLabel} · ` : "";
+    const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
 
     weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
   } catch (error) {
@@ -974,9 +965,8 @@ async function updateWeather(location) {
     if (requestToken !== weatherRequestToken) {
       return;
     }
-    const fallbackLocation = getDefaultWeatherLocation();
-    const resolvedLabel = location.label || fallbackLocation.label || "";
-    const locationLabel = resolvedLabel ? `${resolvedLabel} · ` : "";
+    const fallbackCity = city || getDefaultWeather().city;
+    const locationLabel = fallbackCity ? `${fallbackCity} · ` : "";
     const rawMessage = error && typeof error.message === "string" ? error.message.trim() : "";
     const message =
       rawMessage && /[\u4e00-\u9fff]/.test(rawMessage) ? rawMessage : "天气信息暂不可用";
