@@ -11,10 +11,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DEFAULT_WEATHER_LATITUDE: 39.9042
-      DEFAULT_WEATHER_LONGITUDE: 116.4074
-      DEFAULT_WEATHER_LABEL: '北京'
-      QWEATHER_API_KEY: ${QWEATHER_API_KEY:-}
+      DEFAULT_WEATHER_CITY: '北京'
     ports:
       - "3000:3000"
     volumes:

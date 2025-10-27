@@ -35,7 +35,6 @@ const siteGreetingInput = document.getElementById("site-greeting");
 const siteFooterInput = document.getElementById("site-footer-content");
 const siteFooterPreview = document.getElementById("site-footer-preview");
 const siteWeatherCityInput = document.getElementById("site-weather-city");
-const siteWeatherApiKeyInput = document.getElementById("site-weather-api-key");
 const siteWeatherSummary = document.getElementById("site-weather-summary");
 const categorySuggestions = document.getElementById("category-suggestions");
 const authOverlay = document.getElementById("auth-overlay");
@@ -86,7 +85,6 @@ const BACK_TO_TOP_THRESHOLD = 320;
 
 const DEFAULT_WEATHER_SETTINGS = {
   city: "北京",
-  apiKey: "",
 };
 
 const defaultSettings = {
@@ -212,7 +210,6 @@ function normaliseSettingsIncoming(input) {
 function createDefaultWeatherSettings() {
   return {
     city: DEFAULT_WEATHER_SETTINGS.city,
-    apiKey: "",
   };
 }
 
@@ -230,11 +227,8 @@ function normaliseWeatherSettingsIncoming(raw) {
         : typeof legacy.id === "string" && legacy.id.trim()
         ? legacy.id.trim()
         : "";
-    const apiKey =
-      typeof legacy.apiKey === "string" && legacy.apiKey.trim() ? legacy.apiKey.trim() : "";
     return {
       city: city || fallback.city,
-      apiKey,
     };
   }
 
@@ -246,12 +240,6 @@ function normaliseWeatherSettingsIncoming(raw) {
     weather.city = raw.label.trim();
   } else if (typeof raw.name === "string" && raw.name.trim()) {
     weather.city = raw.name.trim();
-  }
-
-  if (typeof raw.apiKey === "string") {
-    weather.apiKey = raw.apiKey.trim();
-  } else if (typeof raw.key === "string") {
-    weather.apiKey = raw.key.trim();
   }
 
   if (!weather.city) {
@@ -266,12 +254,10 @@ function collectWeatherSettingsFromInputs(previous = state.settings.weather) {
     previous && typeof previous === "object" ? { ...previous } : createDefaultWeatherSettings();
 
   const cityRaw = siteWeatherCityInput ? siteWeatherCityInput.value : "";
-  const apiKeyRaw = siteWeatherApiKeyInput ? siteWeatherApiKeyInput.value : "";
 
   return {
     ...base,
     city: cityRaw.trim(),
-    apiKey: apiKeyRaw.trim(),
   };
 }
 
@@ -279,16 +265,13 @@ function updateWeatherSummary(weather) {
   if (!siteWeatherSummary) return;
 
   const city = typeof weather?.city === "string" ? weather.city.trim() : "";
-  const hasApiKey = typeof weather?.apiKey === "string" && weather.apiKey.trim();
 
   if (!city) {
     siteWeatherSummary.textContent = "请填写城市名称，以便显示天气信息。";
     return;
   }
 
-  siteWeatherSummary.textContent = hasApiKey
-    ? `${city} · API Key 已配置。`
-    : `${city} · 将使用环境变量中的 API Key（如已配置）。`;
+  siteWeatherSummary.textContent = `${city} · 使用 Open-Meteo 免费天气服务。`;
 }
 
 function handleWeatherInputChange() {
@@ -305,20 +288,17 @@ function validateWeatherSettings(weather) {
   if (!city) {
     return { valid: false, message: "请填写天气城市。", focus: siteWeatherCityInput };
   }
-  const apiKey = typeof resolved.apiKey === "string" ? resolved.apiKey.trim() : "";
   return {
     valid: true,
     value: {
       city,
-      apiKey,
     },
   };
 }
 
 function buildWeatherPayload(weather) {
   const city = typeof weather?.city === "string" ? weather.city.trim() : "";
-  const apiKey = typeof weather?.apiKey === "string" ? weather.apiKey.trim() : "";
-  return { city, apiKey };
+  return { city };
 }
 
 function updateFooterPreview(content) {
@@ -343,9 +323,6 @@ function applySettingsToInputs(settings) {
 
   if (siteWeatherCityInput) {
     siteWeatherCityInput.value = normalisedWeather.city || "";
-  }
-  if (siteWeatherApiKeyInput) {
-    siteWeatherApiKeyInput.value = normalisedWeather.apiKey || "";
   }
 
   updateWeatherSummary(normalisedWeather);
@@ -1343,9 +1320,6 @@ function bindEvents() {
 
   if (siteWeatherCityInput) {
     siteWeatherCityInput.addEventListener("input", handleWeatherInputChange);
-  }
-  if (siteWeatherApiKeyInput) {
-    siteWeatherApiKeyInput.addEventListener("input", handleWeatherInputChange);
   }
 
   if (modalForm) {
