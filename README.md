@@ -38,7 +38,7 @@
    - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
-> 天气信息通过 [open-meteo](https://open-meteo.com/) 公共接口获取，由后台所选城市决定；若未配置则使用默认城市（可通过环境变量覆盖）。
+> 天气信息通过 [和风天气（QWeather）](https://dev.qweather.com/) API 获取，请在运行环境中配置 API Key（环境变量 `QWEATHER_API_KEY` 或 `HEWEATHER_API_KEY`），后台所选城市决定展示内容；若未配置则使用默认城市（可通过环境变量覆盖）。
 
 ## Docker Compose 部署
 
@@ -73,11 +73,13 @@
 - 服务默认监听宿主机 `3000` 端口，可在 `docker-compose.yml` 中调整端口映射或 `PORT` 环境变量。
 - 命名卷 `navigation_data` 会持久化 `/app/data` 下的导航配置与后台密码，镜像重建时数据不会丢失。
 - 可通过 `DEFAULT_WEATHER_LATITUDE`、`DEFAULT_WEATHER_LONGITUDE` 与 `DEFAULT_WEATHER_LABEL` 环境变量自定义未授权定位时使用的默认天气位置，Docker Compose 示例已默认填充，可按需修改。
+- 和风天气 API 调用需配置 `QWEATHER_API_KEY`（或 `HEWEATHER_API_KEY`）环境变量，Compose 模板已预留变量，可在 `.env` 文件或部署平台中填写实际密钥。
 - `docker-compose.yml` 中预设 `mem_limit`、`mem_reservation` 与 `cpus`，默认限制为 0.5 核、512MiB 上限及 128MiB 预留，可按实际资源情况调整。
 - 更新代码后重新运行 `docker compose build` 与 `docker compose up -d` 以应用最新版本。
 
 ## 运行时配置
 
+- `QWEATHER_API_KEY`：和风天气 API Key，用于请求实时天气数据；同样支持使用 `HEWEATHER_API_KEY` 作为兼容变量，未配置时前台会提示天气服务未启用。
 - `DEFAULT_WEATHER_LATITUDE`：默认天气城市的纬度（后台未选择城市时使用），范围 -90 ~ 90，默认值 `39.9042`
 - `DEFAULT_WEATHER_LONGITUDE`：默认天气城市的经度（后台未选择城市时使用），范围 -180 ~ 180，默认值 `116.4074`
 - `DEFAULT_WEATHER_LABEL`：默认天气城市的展示名称（后台未选择城市时使用），默认值 `北京`

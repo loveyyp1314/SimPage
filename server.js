@@ -46,6 +46,9 @@ const runtimeConfig = {
   },
 };
 
+const WEATHER_API_TIMEOUT_MS = 5_000;
+const QWEATHER_API_KEY = resolveQWeatherApiKey();
+
 async function readDataFileMeta() {
   try {
     const stats = await fs.stat(DATA_FILE);
@@ -160,6 +163,39 @@ app.get("/api/config", (_req, res) => {
       },
     },
   });
+});
+
+app.get("/api/weather", async (req, res, next) => {
+  try {
+    const latitudeRaw = Array.isArray(req.query.latitude) ? req.query.latitude[0] : req.query.latitude;
+    const longitudeRaw = Array.isArray(req.query.longitude) ? req.query.longitude[0] : req.query.longitude;
+
+    const latitude = parseCoordinate(latitudeRaw, -90, 90);
+    const longitude = parseCoordinate(longitudeRaw, -180, 180);
+
+    if (latitude == null || longitude == null) {
+      res.status(400).json({ success: false, message: "经纬度参数无效。" });
+      return;
+    }
+
+    if (!QWEATHER_API_KEY) {
+      res.status(503).json({ success: false, message: "天气服务未配置，请联系管理员。" });
+      return;
+    }
+
+    const weather = await fetchQWeatherNow(latitude, longitude);
+    res.json({ success: true, data: weather });
+  } catch (error) {
+    if (error && error.expose) {
+      const statusCode =
+        typeof error.statusCode === "number" && error.statusCode >= 400 && error.statusCode < 600
+          ? error.statusCode
+          : 502;
+      res.status(statusCode).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
 });
 
 app.get("/api/admin/data", requireAuth, async (_req, res, next) => {
@@ -798,6 +834,127 @@ function parseCoordinate(value, min, max) {
     return null;
   }
   return numeric;
+}
+
+function createWeatherError(message, statusCode = 502) {
+  const error = new Error(message);
+  error.expose = true;
+  error.statusCode = statusCode;
+  return error;
+}
+
+function resolveQWeatherErrorMessage(code) {
+  const mapping = {
+    "204": "暂时无该地区的天气数据，请稍后重试。",
+    "400": "天气服务请求参数无效。",
+    "401": "天气服务认证失败，请联系管理员。",
+    "402": "天气服务已超出调用额度，请稍后再试。",
+    "403": "天气服务权限不足。",
+    "404": "天气服务资源不存在。",
+    "429": "天气服务请求过于频繁，请稍后再试。",
+    "500": "天气服务暂时不可用，请稍后重试。",
+  };
+  const codeText =
+    typeof code === "string" && code.trim()
+      ? code.trim()
+      : typeof code === "number" && Number.isFinite(code)
+      ? String(code)
+      : "";
+  if (!codeText) {
+    return "天气服务获取失败，请稍后重试。";
+  }
+  return mapping[codeText] || "天气服务获取失败，请稍后重试。";
+}
+
+async function fetchQWeatherNow(latitude, longitude) {
+  const url = new URL("https://devapi.qweather.com/v7/weather/now");
+  url.searchParams.set("location", `${longitude},${latitude}`);
+  url.searchParams.set("key", QWEATHER_API_KEY);
+  url.searchParams.set("lang", "zh");
+  url.searchParams.set("unit", "m");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WEATHER_API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!payload || typeof payload !== "object") {
+      throw createWeatherError("天气服务响应异常，请稍后重试。");
+    }
+
+    const codeText =
+      typeof payload.code === "string" && payload.code.trim()
+        ? payload.code.trim()
+        : typeof payload.code === "number" && Number.isFinite(payload.code)
+        ? String(payload.code)
+        : "";
+
+    if (codeText !== "200" || !payload.now) {
+      const message = resolveQWeatherErrorMessage(codeText);
+      const statusCodeMap = {
+        "400": 400,
+        "401": 503,
+        "402": 503,
+        "403": 503,
+        "404": 404,
+        "429": 429,
+        "500": 503,
+      };
+      const statusCode = statusCodeMap[codeText] || 502;
+      throw createWeatherError(message, statusCode);
+    }
+
+    const description =
+      typeof payload.now.text === "string" && payload.now.text.trim()
+        ? payload.now.text.trim()
+        : "";
+    const temperatureValue = Number(payload.now.temp);
+    const feelsLikeValue = Number(payload.now.feelsLike);
+    const icon =
+      typeof payload.now.icon === "string" && payload.now.icon.trim() ? payload.now.icon.trim() : "";
+    const obsTime =
+      typeof payload.now.obsTime === "string" && payload.now.obsTime.trim()
+        ? payload.now.obsTime.trim()
+        : "";
+
+    return {
+      text: description,
+      temperature: Number.isFinite(temperatureValue) ? temperatureValue : null,
+      feelsLike: Number.isFinite(feelsLikeValue) ? feelsLikeValue : null,
+      icon: icon || null,
+      obsTime: obsTime || null,
+    };
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      throw createWeatherError("天气服务请求超时，请稍后重试。", 504);
+    }
+    if (error && error.expose) {
+      throw error;
+    }
+    throw createWeatherError("天气服务获取失败，请稍后重试。", 502);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function resolveQWeatherApiKey() {
+  const candidates = [process.env.QWEATHER_API_KEY, process.env.HEWEATHER_API_KEY];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return "";
 }
 
 function createDefaultData() {

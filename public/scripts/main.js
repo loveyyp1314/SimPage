@@ -928,76 +928,62 @@ async function updateWeather(location) {
     if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
       throw new Error("无效的经纬度信息");
     }
+
     const params = new URLSearchParams({
       latitude: latitudeValue.toString(),
       longitude: longitudeValue.toString(),
-      current_weather: "true",
-      timezone: "auto",
     });
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error("天气数据请求失败");
-    }
-    const data = await response.json();
-    if (!data.current_weather) {
-      throw new Error("缺少实时天气数据");
+    const response = await fetch(`/api/weather?${params.toString()}`);
+
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      throw new Error("天气服务响应异常");
     }
 
-    const { temperature, weathercode } = data.current_weather;
-    const description = weatherCodeToText(weathercode);
-    const temperatureValue = Number(temperature);
+    if (!response.ok || (payload && payload.success === false)) {
+      const message =
+        typeof payload?.message === "string" && payload.message.trim()
+          ? payload.message.trim()
+          : "天气数据请求失败";
+      throw new Error(message);
+    }
+
+    const data =
+      payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
+
+    const descriptionRaw = typeof data?.text === "string" ? data.text.trim() : "";
+    const description = descriptionRaw || "天气良好";
+    const temperatureValue = Number(data?.temperature);
     const temperatureText = Number.isFinite(temperatureValue)
       ? ` ${Math.round(temperatureValue)}°C`
       : "";
+
     if (requestToken !== weatherRequestToken) {
       return;
     }
+
     const fallbackLocation = getDefaultWeatherLocation();
     const resolvedLabel = location.label || fallbackLocation.label || "";
     const locationLabel = resolvedLabel ? `${resolvedLabel} · ` : "";
+
     weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
   } catch (error) {
     console.error("天气数据获取失败", error);
     if (requestToken !== weatherRequestToken) {
       return;
     }
-    weatherElement.textContent = "天气信息暂不可用";
+    const fallbackLocation = getDefaultWeatherLocation();
+    const resolvedLabel = location.label || fallbackLocation.label || "";
+    const locationLabel = resolvedLabel ? `${resolvedLabel} · ` : "";
+    const rawMessage = error && typeof error.message === "string" ? error.message.trim() : "";
+    const message =
+      rawMessage && /[\u4e00-\u9fff]/.test(rawMessage) ? rawMessage : "天气信息暂不可用";
+    weatherElement.textContent = `${locationLabel}${message}`.trim();
   }
 }
 
-function weatherCodeToText(code) {
-  const mapping = {
-    0: "晴朗",
-    1: "多云",
-    2: "局部多云",
-    3: "阴",
-    45: "有雾",
-    48: "霜雾",
-    51: "毛毛雨",
-    53: "小雨",
-    55: "中雨",
-    56: "冻毛毛雨",
-    57: "冻雨",
-    61: "小雨",
-    63: "中雨",
-    65: "大雨",
-    66: "冻雨",
-    67: "冻雨",
-    71: "小雪",
-    73: "中雪",
-    75: "大雪",
-    77: "雪粒",
-    80: "阵雨",
-    81: "强阵雨",
-    82: "暴阵雨",
-    85: "阵雪",
-    86: "强阵雪",
-    95: "雷雨",
-    96: "雷雨伴冰雹",
-    99: "强雷雨伴冰雹",
-  };
-  return mapping[code] || "天气良好";
-}
 
 function scrollToTop() {
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
