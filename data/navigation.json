@@ -4,11 +4,9 @@
     "siteLogo": "",
     "greeting": "",
     "footer": "",
-    "weatherLocation": {
-      "id": "beijing",
-      "label": "北京",
-      "latitude": 39.9042,
-      "longitude": 116.4074
+    "weather": {
+      "city": "北京",
+      "apiKey": ""
     }
   },
   "apps": [
