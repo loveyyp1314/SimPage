@@ -34,8 +34,11 @@ const siteLogoInput = document.getElementById("site-logo");
 const siteGreetingInput = document.getElementById("site-greeting");
 const siteFooterInput = document.getElementById("site-footer-content");
 const siteFooterPreview = document.getElementById("site-footer-preview");
-const siteWeatherCitySelect = document.getElementById("site-weather-city");
-const siteWeatherCitySummary = document.getElementById("site-weather-city-summary");
+const siteWeatherLabelInput = document.getElementById("site-weather-label");
+const siteWeatherIdInput = document.getElementById("site-weather-id");
+const siteWeatherLatitudeInput = document.getElementById("site-weather-latitude");
+const siteWeatherLongitudeInput = document.getElementById("site-weather-longitude");
+const siteWeatherSummary = document.getElementById("site-weather-summary");
 const categorySuggestions = document.getElementById("category-suggestions");
 const authOverlay = document.getElementById("auth-overlay");
 const loginForm = document.getElementById("login-form");
@@ -95,7 +98,7 @@ const defaultSettings = {
   siteLogo: siteLogoInput && siteLogoInput.value.trim() ? siteLogoInput.value.trim() : "",
   greeting: siteGreetingInput && siteGreetingInput.value.trim() ? siteGreetingInput.value.trim() : "",
   footer: siteFooterInput && siteFooterInput.value ? normaliseFooterValue(siteFooterInput.value) : "",
-  weatherLocation: { ...DEFAULT_WEATHER_LOCATION },
+  weatherLocation: createDefaultWeatherLocationSetting(),
 };
 
 const state = {
@@ -113,7 +116,6 @@ const state = {
 let authToken = "";
 let isDirty = false;
 let modalContext = null;
-let weatherCities = [];
 
 function setStatus(message, variant = "neutral") {
   if (!statusBar) return;
@@ -205,30 +207,94 @@ function normaliseSettingsIncoming(input) {
 }
 
 function createDefaultWeatherLocationSetting() {
-  return { ...DEFAULT_WEATHER_LOCATION };
+  return {
+    ...DEFAULT_WEATHER_LOCATION,
+    latitudeRaw: String(DEFAULT_WEATHER_LOCATION.latitude),
+    longitudeRaw: String(DEFAULT_WEATHER_LOCATION.longitude),
+  };
+}
+
+function parseNumericInput(value, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = {}) {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < min || value > max) {
+      return null;
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric < min || numeric > max) {
+    return null;
+  }
+  return numeric;
 }
 
 function normaliseWeatherLocationIncoming(raw) {
   const fallback = createDefaultWeatherLocationSetting();
   if (!raw || typeof raw !== "object") {
-    return fallback;
+    return { ...fallback };
   }
+
   const value = { ...fallback };
-  const latitude = Number(raw.latitude);
-  if (Number.isFinite(latitude) && latitude >= -90 && latitude <= 90) {
-    value.latitude = latitude;
-  }
-  const longitude = Number(raw.longitude);
-  if (Number.isFinite(longitude) && longitude >= -180 && longitude <= 180) {
-    value.longitude = longitude;
-  }
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
   const label = typeof raw.label === "string" ? raw.label.trim() : "";
+
+  value.id = id;
   if (label) {
     value.label = label;
   }
-  const id = typeof raw.id === "string" ? raw.id.trim() : "";
-  value.id = id;
+
+  const latitudeSource =
+    typeof raw.latitudeRaw === "string" ? raw.latitudeRaw : raw.latitude;
+  const longitudeSource =
+    typeof raw.longitudeRaw === "string" ? raw.longitudeRaw : raw.longitude;
+
+  const latitude = parseNumericInput(latitudeSource, { min: -90, max: 90 });
+  const longitude = parseNumericInput(longitudeSource, { min: -180, max: 180 });
+
+  if (latitude != null) {
+    value.latitude = latitude;
+    value.latitudeRaw =
+      typeof latitudeSource === "string" && latitudeSource.trim()
+        ? latitudeSource.trim()
+        : latitude.toString();
+  } else if (typeof latitudeSource === "string") {
+    value.latitude = null;
+    value.latitudeRaw = latitudeSource;
+  }
+
+  if (longitude != null) {
+    value.longitude = longitude;
+    value.longitudeRaw =
+      typeof longitudeSource === "string" && longitudeSource.trim()
+        ? longitudeSource.trim()
+        : longitude.toString();
+  } else if (typeof longitudeSource === "string") {
+    value.longitude = null;
+    value.longitudeRaw = longitudeSource;
+  }
+
   return value;
+}
+
+function parseWeatherCoordinateFromLocation(location, key) {
+  if (!location || typeof location !== "object") {
+    return null;
+  }
+  const limits = key === "latitude" ? { min: -90, max: 90 } : { min: -180, max: 180 };
+  if (typeof location[`${key}Raw`] === "string") {
+    const parsed = parseNumericInput(location[`${key}Raw`], limits);
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return parseNumericInput(location[key], limits);
 }
 
 function buildWeatherLocationPayload(location) {
@@ -236,13 +302,16 @@ function buildWeatherLocationPayload(location) {
   if (!location || typeof location !== "object") {
     return fallback;
   }
-  const latitude = Number(location.latitude);
-  const longitude = Number(location.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return fallback;
-  }
+
   const label = typeof location.label === "string" ? location.label.trim() : "";
   const id = typeof location.id === "string" ? location.id.trim() : "";
+  const latitude = parseWeatherCoordinateFromLocation(location, "latitude");
+  const longitude = parseWeatherCoordinateFromLocation(location, "longitude");
+
+  if (latitude == null || longitude == null) {
+    return fallback;
+  }
+
   return {
     id,
     label: label || fallback.label,
@@ -251,216 +320,95 @@ function buildWeatherLocationPayload(location) {
   };
 }
 
-function normaliseWeatherCityData(raw) {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const id = typeof raw.id === "string" ? raw.id.trim() : "";
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
-  const province = typeof raw.province === "string" ? raw.province.trim() : "";
-  const latitude = Number(raw.latitude);
-  const longitude = Number(raw.longitude);
-  if (!id || !name) {
-    return null;
-  }
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
+function collectWeatherLocationFromInputs(previous = state.settings.weatherLocation) {
+  const base =
+    previous && typeof previous === "object"
+      ? { ...previous }
+      : createDefaultWeatherLocationSetting();
+
+  const labelRaw = siteWeatherLabelInput ? siteWeatherLabelInput.value : "";
+  const idRaw = siteWeatherIdInput ? siteWeatherIdInput.value : "";
+  const latitudeRaw =
+    siteWeatherLatitudeInput && typeof siteWeatherLatitudeInput.value === "string"
+      ? siteWeatherLatitudeInput.value
+      : "";
+  const longitudeRaw =
+    siteWeatherLongitudeInput && typeof siteWeatherLongitudeInput.value === "string"
+      ? siteWeatherLongitudeInput.value
+      : "";
+
+  const latitude = parseNumericInput(latitudeRaw, { min: -90, max: 90 });
+  const longitude = parseNumericInput(longitudeRaw, { min: -180, max: 180 });
+
   return {
-    id,
-    name,
-    province,
+    ...base,
+    id: idRaw.trim(),
+    label: labelRaw.trim(),
     latitude,
     longitude,
+    latitudeRaw,
+    longitudeRaw,
   };
 }
 
-function findWeatherCityById(id) {
-  if (!id) {
-    return null;
+function updateWeatherSummary(location) {
+  if (!siteWeatherSummary) return;
+
+  const label = typeof location?.label === "string" ? location.label.trim() : "";
+  const id = typeof location?.id === "string" ? location.id.trim() : "";
+  const latitude = parseWeatherCoordinateFromLocation(location, "latitude");
+  const longitude = parseWeatherCoordinateFromLocation(location, "longitude");
+
+  if (!label) {
+    siteWeatherSummary.textContent = "请填写展示名称、经纬度信息，以便获取天气。";
+    return;
   }
-  return weatherCities.find((city) => city.id === id) || null;
+
+  if (latitude == null || longitude == null) {
+    siteWeatherSummary.textContent = `${label} · 经纬度缺失或格式不正确。`;
+    return;
+  }
+
+  const idSuffix = id ? ` · 地区 ID：${id}` : "";
+  siteWeatherSummary.textContent = `${label} · 纬度 ${latitude.toFixed(
+    4
+  )} · 经度 ${longitude.toFixed(4)}${idSuffix}`;
 }
 
-function ensureCustomWeatherOption(location) {
-  if (!siteWeatherCitySelect) {
-    return;
-  }
-  const existingOption = Array.from(siteWeatherCitySelect.options).find(
-    (option) => option.value === location.id
-  );
-  if (existingOption) {
-    existingOption.textContent = `${location.label}（自定义）`;
-    existingOption.dataset.latitude = String(location.latitude);
-    existingOption.dataset.longitude = String(location.longitude);
-    existingOption.dataset.custom = "true";
-    return;
-  }
-  const option = document.createElement("option");
-  option.value = location.id;
-  option.textContent = `${location.label}（自定义）`;
-  option.dataset.latitude = String(location.latitude);
-  option.dataset.longitude = String(location.longitude);
-  option.dataset.custom = "true";
-  siteWeatherCitySelect.appendChild(option);
-}
-
-function updateWeatherCitySummary(location) {
-  if (!siteWeatherCitySummary) return;
-  if (!location || !location.label) {
-    siteWeatherCitySummary.textContent = "未选择城市，将使用默认天气城市。";
-    return;
-  }
-  const lat = Number(location.latitude);
-  const lon = Number(location.longitude);
-  const coords =
-    Number.isFinite(lat) && Number.isFinite(lon)
-      ? `（${lat.toFixed(2)}, ${lon.toFixed(2)}）`
-      : "";
-  siteWeatherCitySummary.textContent = `当前城市：${location.label}${coords}`;
-}
-
-function applyWeatherCitySelection(location) {
-  const normalised = normaliseWeatherLocationIncoming(location);
-  updateWeatherCitySummary(normalised);
-  if (!siteWeatherCitySelect) {
-    return;
-  }
-  if (!weatherCities.length) {
-    siteWeatherCitySelect.value = "";
-    return;
-  }
-  const matchingCity = findWeatherCityById(normalised.id);
-  if (matchingCity) {
-    siteWeatherCitySelect.value = matchingCity.id;
-    return;
-  }
-  if (normalised.id) {
-    ensureCustomWeatherOption(normalised);
-    siteWeatherCitySelect.value = normalised.id;
-    return;
-  }
-  siteWeatherCitySelect.value = "";
-  const placeholderOption = siteWeatherCitySelect.querySelector('option[value=""]');
-  if (placeholderOption) {
-    placeholderOption.selected = true;
-  }
-}
-
-async function loadWeatherCities() {
-  if (!siteWeatherCitySelect) return;
-  siteWeatherCitySelect.disabled = true;
-  siteWeatherCitySelect.innerHTML = "";
-  const loadingOption = document.createElement("option");
-  loadingOption.value = "";
-  loadingOption.textContent = "正在加载城市列表...";
-  loadingOption.disabled = true;
-  loadingOption.selected = true;
-  siteWeatherCitySelect.appendChild(loadingOption);
-  try {
-    const response = await fetch("/data/china-cities.json", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("城市列表加载失败");
-    }
-    const data = await response.json();
-    if (!Array.isArray(data)) {
-      throw new Error("城市数据格式不正确");
-    }
-    weatherCities = data.map(normaliseWeatherCityData).filter(Boolean);
-    weatherCities.sort((a, b) => {
-      const provinceCompare = a.province.localeCompare(b.province, "zh-CN");
-      if (provinceCompare !== 0) {
-        return provinceCompare;
-      }
-      return a.name.localeCompare(b.name, "zh-CN");
-    });
-    renderWeatherCityOptions();
-  } catch (error) {
-    console.error("加载城市列表失败", error);
-    siteWeatherCitySelect.innerHTML = "";
-    const errorOption = document.createElement("option");
-    errorOption.value = "";
-    errorOption.textContent = "城市列表加载失败";
-    errorOption.disabled = true;
-    errorOption.selected = true;
-    siteWeatherCitySelect.appendChild(errorOption);
-    siteWeatherCitySelect.disabled = true;
-    updateWeatherCitySummary(state.settings.weatherLocation);
-  }
-}
-
-function renderWeatherCityOptions() {
-  if (!siteWeatherCitySelect) return;
-  siteWeatherCitySelect.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = weatherCities.length ? "请选择城市" : "城市列表加载中...";
-  placeholder.disabled = true;
-  placeholder.selected = true;
-  siteWeatherCitySelect.appendChild(placeholder);
-
-  if (!weatherCities.length) {
-    siteWeatherCitySelect.disabled = true;
-    applyWeatherCitySelection(state.settings.weatherLocation);
-    return;
-  }
-
-  const groups = new Map();
-  weatherCities.forEach((city) => {
-    const province = city.province || "其他地区";
-    if (!groups.has(province)) {
-      groups.set(province, []);
-    }
-    groups.get(province).push(city);
-  });
-
-  const sortedProvinces = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, "zh-CN"));
-  sortedProvinces.forEach((province) => {
-    const cities = groups.get(province);
-    cities.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-    const optgroup = document.createElement("optgroup");
-    optgroup.label = province;
-    cities.forEach((city) => {
-      const option = document.createElement("option");
-      option.value = city.id;
-      option.textContent = city.name;
-      option.dataset.latitude = String(city.latitude);
-      option.dataset.longitude = String(city.longitude);
-      option.dataset.label = city.name;
-      optgroup.appendChild(option);
-    });
-    siteWeatherCitySelect.appendChild(optgroup);
-  });
-
-  siteWeatherCitySelect.disabled = false;
-  applyWeatherCitySelection(state.settings.weatherLocation);
-}
-
-function handleWeatherCityChange() {
-  if (!siteWeatherCitySelect) return;
-  const value = siteWeatherCitySelect.value;
-  if (!value) {
-    const fallback = createDefaultWeatherLocationSetting();
-    state.settings.weatherLocation = fallback;
-    applyWeatherCitySelection(fallback);
-    markDirty();
-    setStatus("已恢复默认天气城市，记得保存。", "neutral");
-    return;
-  }
-  const city = findWeatherCityById(value);
-  if (!city) {
-    return;
-  }
-  const location = normaliseWeatherLocationIncoming({
-    id: city.id,
-    label: city.name,
-    latitude: city.latitude,
-    longitude: city.longitude,
-  });
-  state.settings.weatherLocation = location;
-  applyWeatherCitySelection(location);
+function handleWeatherInputChange() {
+  const nextLocation = collectWeatherLocationFromInputs();
+  state.settings.weatherLocation = nextLocation;
+  updateWeatherSummary(nextLocation);
   markDirty();
-  setStatus("天气城市已更新，记得保存。", "neutral");
+  setStatus("天气配置已更新，记得保存。", "neutral");
+}
+
+function validateWeatherLocation(location) {
+  const resolved = location && typeof location === "object" ? location : createDefaultWeatherLocationSetting();
+  const label = typeof resolved.label === "string" ? resolved.label.trim() : "";
+  const id = typeof resolved.id === "string" ? resolved.id.trim() : "";
+  const latitude = parseWeatherCoordinateFromLocation(resolved, "latitude");
+  const longitude = parseWeatherCoordinateFromLocation(resolved, "longitude");
+
+  if (!label) {
+    return { valid: false, message: "请填写天气展示名称。", focus: siteWeatherLabelInput };
+  }
+  if (latitude == null) {
+    return { valid: false, message: "请填写有效的纬度（-90 至 90）。", focus: siteWeatherLatitudeInput };
+  }
+  if (longitude == null) {
+    return { valid: false, message: "请填写有效的经度（-180 至 180）。", focus: siteWeatherLongitudeInput };
+  }
+
+  return {
+    valid: true,
+    value: {
+      id,
+      label,
+      latitude,
+      longitude,
+    },
+  };
 }
 
 function updateFooterPreview(content) {
@@ -479,7 +427,34 @@ function applySettingsToInputs(settings) {
   if (siteGreetingInput) siteGreetingInput.value = settings.greeting || "";
   if (siteFooterInput) siteFooterInput.value = settings.footer || "";
   updateFooterPreview(settings.footer);
-  applyWeatherCitySelection(settings.weatherLocation);
+
+  const normalisedWeather = normaliseWeatherLocationIncoming(settings.weatherLocation);
+  state.settings.weatherLocation = normalisedWeather;
+
+  if (siteWeatherLabelInput) {
+    siteWeatherLabelInput.value = normalisedWeather.label || "";
+  }
+  if (siteWeatherIdInput) {
+    siteWeatherIdInput.value = normalisedWeather.id || "";
+  }
+  if (siteWeatherLatitudeInput) {
+    siteWeatherLatitudeInput.value =
+      typeof normalisedWeather.latitudeRaw === "string"
+        ? normalisedWeather.latitudeRaw
+        : normalisedWeather.latitude != null
+        ? normalisedWeather.latitude.toString()
+        : "";
+  }
+  if (siteWeatherLongitudeInput) {
+    siteWeatherLongitudeInput.value =
+      typeof normalisedWeather.longitudeRaw === "string"
+        ? normalisedWeather.longitudeRaw
+        : normalisedWeather.longitude != null
+        ? normalisedWeather.longitude.toString()
+        : "";
+  }
+
+  updateWeatherSummary(normalisedWeather);
   updatePageIdentity(settings);
 }
 
@@ -1061,6 +1036,40 @@ async function saveChanges() {
   saveButton.disabled = true;
   setStatus("正在保存修改...", "neutral");
 
+  const weatherValidation = validateWeatherLocation(state.settings.weatherLocation);
+  if (!weatherValidation.valid) {
+    setStatus(weatherValidation.message, "error");
+    saveButton.disabled = false;
+    if (weatherValidation.focus && typeof weatherValidation.focus.focus === "function") {
+      weatherValidation.focus.focus();
+    }
+    return;
+  }
+
+  state.settings.weatherLocation = {
+    ...state.settings.weatherLocation,
+    id: weatherValidation.value.id,
+    label: weatherValidation.value.label,
+    latitude: weatherValidation.value.latitude,
+    longitude: weatherValidation.value.longitude,
+    latitudeRaw: weatherValidation.value.latitude.toString(),
+    longitudeRaw: weatherValidation.value.longitude.toString(),
+  };
+
+  if (siteWeatherLabelInput) {
+    siteWeatherLabelInput.value = state.settings.weatherLocation.label;
+  }
+  if (siteWeatherIdInput) {
+    siteWeatherIdInput.value = state.settings.weatherLocation.id;
+  }
+  if (siteWeatherLatitudeInput) {
+    siteWeatherLatitudeInput.value = state.settings.weatherLocation.latitudeRaw;
+  }
+  if (siteWeatherLongitudeInput) {
+    siteWeatherLongitudeInput.value = state.settings.weatherLocation.longitudeRaw;
+  }
+  updateWeatherSummary(state.settings.weatherLocation);
+
   const payloadSettings = buildSettingsPayload(state.settings);
   if (!payloadSettings.siteName) {
     setStatus("请填写网站名称。", "error");
@@ -1448,8 +1457,17 @@ function bindEvents() {
     });
   }
 
-  if (siteWeatherCitySelect) {
-    siteWeatherCitySelect.addEventListener("change", handleWeatherCityChange);
+  if (siteWeatherLabelInput) {
+    siteWeatherLabelInput.addEventListener("input", handleWeatherInputChange);
+  }
+  if (siteWeatherIdInput) {
+    siteWeatherIdInput.addEventListener("input", handleWeatherInputChange);
+  }
+  if (siteWeatherLatitudeInput) {
+    siteWeatherLatitudeInput.addEventListener("input", handleWeatherInputChange);
+  }
+  if (siteWeatherLongitudeInput) {
+    siteWeatherLongitudeInput.addEventListener("input", handleWeatherInputChange);
   }
 
   if (modalForm) {
@@ -1534,8 +1552,6 @@ async function initialise() {
   applySettingsToInputs(state.settings);
   render();
   resetDirty();
-  loadWeatherCities();
-
   const storedToken = loadStoredToken();
   if (storedToken) {
     authToken = storedToken;

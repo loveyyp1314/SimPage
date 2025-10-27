@@ -1164,6 +1164,21 @@ body.admin-body {
   color: rgba(31, 41, 55, 0.52);
 }
 
+.weather-field .weather-config-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.weather-field .weather-config-grid .field {
+  gap: 0.35rem;
+}
+
+.weather-field .weather-config-grid input[type="number"],
+.weather-field .weather-config-grid input[type="text"] {
+  min-height: auto;
+}
+
 .footer-preview-field .footer-preview {
   min-height: 120px;
   padding: 1rem 1.2rem;
