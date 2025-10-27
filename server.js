@@ -1,6 +1,8 @@
 const express = require("express");
 const fs = require("fs/promises");
 const path = require("path");
+const http = require("node:http");
+const https = require("node:https");
 const { randomUUID, scryptSync, timingSafeEqual, randomBytes } = require("crypto");
 
 const PORT = process.env.PORT || 3000;
@@ -45,6 +47,11 @@ const runtimeConfig = {
 };
 
 const WEATHER_API_TIMEOUT_MS = 5_000;
+const WEATHER_FETCH_HEADERS = Object.freeze({ Accept: "application/json" });
+const WEATHER_HTTP_HEADERS = Object.freeze({
+  Accept: "application/json",
+  "Accept-Encoding": "identity",
+});
 const QWEATHER_API_KEY = resolveQWeatherApiKey();
 
 async function readDataFileMeta() {
@@ -978,18 +985,8 @@ async function fetchQWeatherNow(locationQuery, apiKey) {
   url.searchParams.set("lang", "zh");
   url.searchParams.set("unit", "m");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), WEATHER_API_TIMEOUT_MS);
-
   try {
-    const response = await fetch(url.toString(), {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    const payload = await response.json().catch(() => null);
+    const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
     if (!payload || typeof payload !== "object") {
       throw createWeatherError("天气服务响应异常，请稍后重试。");
     }
@@ -1044,9 +1041,82 @@ async function fetchQWeatherNow(locationQuery, apiKey) {
       throw error;
     }
     throw createWeatherError("天气服务获取失败，请稍后重试。", 502);
-  } finally {
-    clearTimeout(timeout);
   }
+}
+
+async function requestWeatherPayload(url, timeoutMs) {
+  if (typeof fetch === "function" && typeof AbortController === "function") {
+    return requestWeatherPayloadWithNativeFetch(url, timeoutMs);
+  }
+  return requestWeatherPayloadWithNodeHttp(url, timeoutMs);
+}
+
+async function requestWeatherPayloadWithNativeFetch(url, timeoutMs) {
+  const controller = new AbortController();
+  let timeoutId = null;
+
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: WEATHER_FETCH_HEADERS,
+    });
+    const payload = await response.json().catch(() => null);
+    return payload;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function requestWeatherPayloadWithNodeHttp(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const isHttps = url.protocol === "https:";
+    const transport = isHttps ? https : http;
+    const options = {
+      method: "GET",
+      hostname: url.hostname,
+      port: url.port ? Number(url.port) : isHttps ? 443 : 80,
+      path: `${url.pathname}${url.search}`,
+      headers: WEATHER_HTTP_HEADERS,
+    };
+
+    const request = transport.request(options, (response) => {
+      let raw = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        raw += chunk;
+      });
+      response.on("end", () => {
+        if (!raw) {
+          resolve(null);
+          return;
+        }
+        try {
+          resolve(JSON.parse(raw));
+        } catch (_error) {
+          resolve(null);
+        }
+      });
+      response.on("error", reject);
+    });
+
+    request.on("error", reject);
+
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      request.setTimeout(timeoutMs, () => {
+        const timeoutError = new Error("Request timed out");
+        timeoutError.name = "AbortError";
+        request.destroy(timeoutError);
+      });
+    }
+
+    request.end();
+  });
 }
 
 async function resolveWeatherRequestConfig() {
