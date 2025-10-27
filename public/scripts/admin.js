@@ -920,14 +920,10 @@ async function saveChanges() {
   state.settings.weather = {
     ...state.settings.weather,
     city: weatherValidation.value.city,
-    apiKey: weatherValidation.value.apiKey,
   };
 
   if (siteWeatherCityInput) {
     siteWeatherCityInput.value = state.settings.weather.city;
-  }
-  if (siteWeatherApiKeyInput) {
-    siteWeatherApiKeyInput.value = state.settings.weather.apiKey;
   }
   updateWeatherSummary(state.settings.weather);
 
