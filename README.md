@@ -37,6 +37,11 @@
    - 前台导航页：[`http://localhost:3000/`](http://localhost:3000/)
    - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
+4. 更新
+   ```bash
+   git pull
+   ```
+
 > 后台首次登录请使用默认密码 `admin123`，可在 `data/navigation.json` 中更新密码散列。
 > 天气信息通过 [Open-Meteo](https://open-meteo.com/) 开源免费 API 获取，无需注册和 API Key，后台所选城市决定展示内容；若未配置则使用默认城市（可通过环境变量覆盖）。
 
@@ -65,6 +70,11 @@
    ```bash
    docker compose down
    ```
+5. 更新
+   ```bash
+   git pull
+   ```
+重新构建镜像 -> docker-compose up -d
 
 以上命令同样适用于旧版 `docker-compose` CLI，只需将 `docker compose` 替换为 `docker-compose`。
 
