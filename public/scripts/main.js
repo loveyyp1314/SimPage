@@ -1008,10 +1008,9 @@ async function initialise() {
   setInterval(updateClock, 1_000);
 
   const runtimeConfigPromise = loadRuntimeConfig();
+  const dataPromise = loadData();
 
-  loadData();
   loadYiyanQuote();
-  refreshWeatherDisplay();
 
   if (backToTopButton) {
     backToTopButton.addEventListener("click", (event) => {
@@ -1081,6 +1080,11 @@ async function initialise() {
     });
   }
   updateSearchControls();
+
+  await dataPromise.catch(() => {});
+  if (weatherRequestToken === 0) {
+    refreshWeatherDisplay();
+  }
 
   await runtimeConfigPromise.catch(() => {});
 }
