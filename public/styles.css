@@ -426,8 +426,8 @@ body.admin-body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: clamp(2rem, 4.5vw, 3rem);
+  grid-template-columns: repeat(5, 1fr);
+  gap: clamp(1rem, 2vw, 1.5rem);
   align-items: stretch;
 }
 
@@ -574,7 +574,7 @@ body.admin-body {
 
 .bookmark-group-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: rgba(31, 31, 31, 0.78);
 }
@@ -582,18 +582,18 @@ body.admin-body {
 .tile {
   position: relative;
   display: grid;
-  grid-template-columns: 3.4rem 1fr;
+  grid-template-columns: 2.2rem 1fr;
   grid-template-rows: minmax(0, auto) minmax(0, auto);
-  column-gap: 0.9rem;
-  row-gap: 0;
-  padding: clamp(0.9rem, 2.4vw, 1.1rem);
+  column-gap: 0.6rem;
+  row-gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
   text-decoration: none;
   color: var(--text-primary);
   background: var(--tile-bg);
   border: 1px solid var(--tile-border);
-  border-radius: 18px;
+  border-radius: 14px;
   transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
-  height: 140px;
+  min-height: 100px;
   align-items: start;
   align-content: start;
   overflow: hidden;
@@ -613,21 +613,21 @@ body.admin-body {
 }
 
 .tile-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 14px;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.82);
   display: grid;
   place-items: center;
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 0.85rem;
   color: rgba(31, 31, 31, 0.7);
   overflow: hidden;
   flex-shrink: 0;
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: start;
-  margin-top: 0;
+  margin-top: 0.1rem;
 }
 
 .tile-icon img {
@@ -639,9 +639,9 @@ body.admin-body {
 
 .tile-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.3;
   grid-column: 2;
   grid-row: 1;
   align-self: start;
@@ -657,8 +657,8 @@ body.admin-body {
 .tile-description {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: 0.75rem;
+  line-height: 1.3;
   grid-column: 2;
   grid-row: 2;
   align-self: start;
@@ -668,7 +668,7 @@ body.admin-body {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-word;
-  margin-top: 0.3rem;
+  margin-top: 0.15rem;
   min-width: 0;
 }
 
@@ -1543,6 +1543,10 @@ body.modal-open {
   .admin-return {
     align-self: flex-start;
   }
+
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1555,7 +1559,7 @@ body.modal-open {
   }
 
   .grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .tile {
@@ -1569,6 +1573,12 @@ body.modal-open {
 
   .modal-form {
     padding: 1.4rem 1.4rem 1.6rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid {
+    grid-template-columns: 1fr;
   }
 }
 
