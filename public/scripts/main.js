@@ -581,9 +581,6 @@ function createTile(item) {
   link.rel = "noopener noreferrer";
   link.setAttribute("role", "listitem");
 
-  const header = document.createElement("div");
-  header.className = "tile-header";
-
   const iconWrapper = document.createElement("span");
   iconWrapper.className = "tile-icon";
   const iconContent = String(item.icon || "").trim();
@@ -600,18 +597,22 @@ function createTile(item) {
   }
 
   const title = document.createElement("h3");
+  title.className = "tile-title";
   title.textContent = item.name || "未命名";
 
-  header.appendChild(iconWrapper);
-  header.appendChild(title);
-  link.appendChild(header);
-
-  if (item.description) {
-    const description = document.createElement("p");
-    description.className = "tile-description";
-    description.textContent = item.description;
-    link.appendChild(description);
+  const description = document.createElement("p");
+  description.className = "tile-description";
+  const descriptionText = typeof item.description === "string" ? item.description.trim() : "";
+  if (descriptionText) {
+    description.textContent = descriptionText;
+  } else {
+    description.classList.add("is-empty");
+    description.setAttribute("aria-hidden", "true");
   }
+
+  link.appendChild(iconWrapper);
+  link.appendChild(title);
+  link.appendChild(description);
 
   return link;
 }
