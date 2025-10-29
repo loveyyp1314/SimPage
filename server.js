@@ -56,6 +56,11 @@ const WEATHER_HTTP_HEADERS = Object.freeze({
   "Accept-Encoding": "identity",
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 });
+const GEOLOCATION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const GEOLOCATION_MAX_RETRIES = 3;
+const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
+
+const geocodeCache = new Map();
 
 async function readDataFileMeta() {
   try {
@@ -903,50 +908,105 @@ function createWeatherError(message, statusCode = 502) {
   return error;
 }
 
+function getGeocodeCacheKey(city) {
+  return city.toLowerCase();
+}
+
+function getCachedGeocode(city) {
+  const key = getGeocodeCacheKey(city);
+  const cached = geocodeCache.get(key);
+  if (!cached) {
+    return null;
+  }
+  if (Date.now() - cached.timestamp > GEOLOCATION_CACHE_TTL_MS) {
+    geocodeCache.delete(key);
+    return null;
+  }
+  return { ...cached.data };
+}
+
+function setCachedGeocode(city, data) {
+  const key = getGeocodeCacheKey(city);
+  geocodeCache.set(key, {
+    data: { ...data },
+    timestamp: Date.now(),
+  });
+}
+
 async function geocodeCity(cityName) {
   const city = typeof cityName === "string" ? cityName.trim() : "";
   if (!city) {
     throw createWeatherError("城市名称无效。", 400);
   }
 
-  const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-  url.searchParams.set("name", city);
-  url.searchParams.set("count", "1");
-  url.searchParams.set("language", "zh");
-  url.searchParams.set("format", "json");
-
-  try {
-    const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
-    if (!payload || typeof payload !== "object") {
-      throw createWeatherError("地理编码服务响应异常，请稍后重试。");
-    }
-
-    if (!payload.results || !Array.isArray(payload.results) || payload.results.length === 0) {
-      throw createWeatherError(`未找到城市"${city}"的地理位置信息，请检查城市名称。`, 404);
-    }
-
-    const result = payload.results[0];
-    const latitude = Number(result.latitude);
-    const longitude = Number(result.longitude);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      throw createWeatherError("地理位置信息无效。");
-    }
-
-    return {
-      latitude,
-      longitude,
-      name: result.name || city,
-    };
-  } catch (error) {
-    if (error && error.name === "AbortError") {
-      throw createWeatherError("地理编码服务请求超时，请稍后重试。", 504);
-    }
-    if (error && error.expose) {
-      throw error;
-    }
-    throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
+  const cached = getCachedGeocode(city);
+  if (cached) {
+    return cached;
   }
+
+  let lastError = null;
+  for (let attempt = 0; attempt < GEOLOCATION_MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = GEOLOCATION_RETRY_DELAY_BASE_MS * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+      url.searchParams.set("name", city);
+      url.searchParams.set("count", "1");
+      url.searchParams.set("language", "zh");
+      url.searchParams.set("format", "json");
+
+      const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
+      if (!payload || typeof payload !== "object") {
+        throw createWeatherError("地理编码服务响应异常，请稍后重试。");
+      }
+
+      if (!payload.results || !Array.isArray(payload.results) || payload.results.length === 0) {
+        throw createWeatherError(`未找到城市"${city}"的地理位置信息，请检查城市名称。`, 404);
+      }
+
+      const result = payload.results[0];
+      const latitude = Number(result.latitude);
+      const longitude = Number(result.longitude);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw createWeatherError("地理位置信息无效。");
+      }
+
+      const locationData = {
+        latitude,
+        longitude,
+        name: result.name || city,
+      };
+
+      setCachedGeocode(city, locationData);
+      return locationData;
+    } catch (error) {
+      lastError = error;
+      if (
+        error &&
+        error.expose &&
+        typeof error.statusCode === "number" &&
+        error.statusCode < 500
+      ) {
+        throw error;
+      }
+      if (attempt < GEOLOCATION_MAX_RETRIES - 1) {
+        console.warn(`地理编码请求失败（尝试 ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}），将重试...`, error?.message || error);
+        continue;
+      }
+    }
+  }
+
+  if (lastError && lastError.name === "AbortError") {
+    throw createWeatherError("地理编码服务请求超时，请稍后重试。", 504);
+  }
+  if (lastError && lastError.expose) {
+    throw lastError;
+  }
+  throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
 }
 
 async function fetchOpenMeteoWeather(cityName) {
