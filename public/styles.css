@@ -582,7 +582,10 @@ body.admin-body {
 .tile {
   position: relative;
   display: grid;
-  gap: 0.65rem;
+  grid-template-columns: 3.4rem 1fr;
+  grid-template-rows: minmax(0, auto) minmax(0, auto);
+  column-gap: 0.9rem;
+  row-gap: 0;
   padding: clamp(0.9rem, 2.4vw, 1.1rem);
   text-decoration: none;
   color: var(--text-primary);
@@ -590,7 +593,11 @@ body.admin-body {
   border: 1px solid var(--tile-border);
   border-radius: 18px;
   transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
-  min-height: 124px;
+  height: 140px;
+  align-items: start;
+  align-content: start;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .tile:hover,
@@ -605,23 +612,22 @@ body.admin-body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28), 0 26px 52px rgba(15, 23, 42, 0.12);
 }
 
-.tile-header {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
 .tile-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 12px;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.82);
   display: grid;
   place-items: center;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: rgba(31, 31, 31, 0.7);
   overflow: hidden;
+  flex-shrink: 0;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  margin-top: 0;
 }
 
 .tile-icon img {
@@ -631,16 +637,43 @@ body.admin-body {
   border-radius: inherit;
 }
 
-.tile h3 {
+.tile-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
+  line-height: 1.4;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .tile-description {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.85rem;
+  line-height: 1.4;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  margin-top: 0.3rem;
+  min-width: 0;
+}
+
+.tile-description.is-empty {
+  visibility: hidden;
 }
 
 .tile-meta {
