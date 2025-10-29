@@ -919,9 +919,12 @@ function refreshWeatherDisplay() {
   updateWeather(weather);
 }
 
-async function updateWeather(weather) {
+async function updateWeather(weather, retryCount = 0) {
   const requestToken = ++weatherRequestToken;
   const city = typeof weather?.city === "string" ? weather.city.trim() : "";
+  const maxRetries = 2;
+  const retryDelay = 1000;
+
   try {
     const response = await fetch("/api/weather");
 
@@ -966,6 +969,17 @@ async function updateWeather(weather) {
     if (requestToken !== weatherRequestToken) {
       return;
     }
+
+    if (retryCount < maxRetries) {
+      console.log(`将在 ${retryDelay}ms 后重试（尝试 ${retryCount + 1}/${maxRetries}）...`);
+      setTimeout(() => {
+        if (requestToken === weatherRequestToken) {
+          updateWeather(weather, retryCount + 1);
+        }
+      }, retryDelay);
+      return;
+    }
+
     const fallbackCity = city || getDefaultWeather().city;
     const locationLabel = fallbackCity ? `${fallbackCity} · ` : "";
     const rawMessage = error && typeof error.message === "string" ? error.message.trim() : "";
