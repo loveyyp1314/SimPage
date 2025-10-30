@@ -41,8 +41,17 @@ export default {
         return await handleLogin(request, env, corsHeaders);
       }
 
-      if (pathname === "/api/data" && request.method === "GET") {
-        return await handlePublicData(env, corsHeaders);
+      if (pathname === "/api/data") {
+        if (request.method === "GET") {
+          return await handlePublicData(env, corsHeaders);
+        }
+        if (request.method === "PUT") {
+          const authorised = await verifyAuth(request, env);
+          if (!authorised) {
+            return unauthorizedResponse(corsHeaders);
+          }
+          return await handleUpdateData(request, env, corsHeaders);
+        }
       }
 
       if (pathname === "/api/config" && request.method === "GET") {
