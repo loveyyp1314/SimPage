@@ -235,61 +235,6 @@
         <button type="submit" class="primary-button">登录</button>
         <p class="auth-hint">首次使用默认密码：admin123</p>
       </form>
-      <form class="auth-card glass" id="github-login-form" aria-labelledby="github-login-title">
-        <h2 id="github-login-title">GitHub Actions 模式配置</h2>
-        <p class="auth-description">配置 GitHub 仓库信息以启用后台编辑功能。</p>
-        <p class="form-error" id="github-login-error" role="alert" hidden></p>
-        <p class="auth-message" id="github-login-message" role="status" hidden></p>
-        <div class="field">
-          <span>仓库所有者</span>
-          <input
-            type="text"
-            id="github-owner"
-            autocomplete="off"
-            placeholder="例如：username"
-          />
-        </div>
-        <div class="field">
-          <span>仓库名称</span>
-          <input
-            type="text"
-            id="github-repo"
-            autocomplete="off"
-            placeholder="例如：simpage"
-          />
-        </div>
-        <div class="field">
-          <span>分支</span>
-          <input
-            type="text"
-            id="github-branch"
-            autocomplete="off"
-            placeholder="main"
-            value="main"
-          />
-        </div>
-        <div class="field">
-          <span>GitHub Token</span>
-          <input
-            type="password"
-            id="github-token"
-            autocomplete="off"
-            placeholder="ghp_xxxxxxxxxxxx"
-          />
-          <p class="field-description">
-            需要具有 <code>repo</code> 与 <code>workflow</code> 权限的 Personal Access Token。
-          </p>
-        </div>
-        <div class="auth-actions">
-          <button type="submit" class="primary-button">保存并验证配置</button>
-          <button type="button" class="ghost-button" id="github-detect-button">自动检测</button>
-          <button type="button" class="ghost-button" id="github-clear-button">清除配置</button>
-        </div>
-        <p class="auth-hint">
-          Token 仅保存在本地浏览器，不会上传到服务器。
-          <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank" rel="noopener">创建 Token</a>
-        </p>
-      </form>
     </div>
   </body>
 </html>
