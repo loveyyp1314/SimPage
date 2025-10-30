@@ -9,26 +9,25 @@ GitHub Pages 只能托管静态网站（HTML/CSS/JavaScript），**不支持后�
 - ✅ 前台导航功能完全正常
 - ✅ 静态内容展示
 - ✅ 自定义域名支持
-- ❌ **无法使用后台编辑功能**
-- ❌ **无法多设备同步数据**
+- ✅ **支持后台编辑功能（通过 GitHub Actions）** ⭐️ 新功能
+- ✅ **支持多设备数据同步（通过 Git）**
 - ⚠️ 访客计数等动态功能不可用
-- ⚠️ 需要手动编辑文件来修改内容
+- ⚠️ 数据保存需要 1-2 分钟延迟
 
 ## 适用场景
 
 GitHub Pages 部署适合：
-- 个人导航页，不需要频繁修改
-- 单设备使用
+- 个人导航页，完全免费托管
+- 多设备数据同步（通过 Git）
 - 想要完全免费的解决方案
-- 不需要后台管理功能
+- **支持后台编辑功能（通过 GitHub Actions）** ⭐️
 
 ## 不适合的场景
 
 如果你需要以下功能，请使用 [Node.js / Docker](./README.md) 或 [Cloudflare Workers](./README-CLOUDFLARE.md) 部署：
-- 后台可视化编辑
-- 多设备数据同步
-- 团队协作管理
+- 即时数据保存（GitHub Pages 有 1-2 分钟延迟）
 - 访客统计功能
+- 团队协作管理（多人同时编辑）
 
 ## 部署步骤
 
@@ -134,6 +133,20 @@ git push
 ```
 
 GitHub Actions 会自动运行，将 `public` 目录部署到 GitHub Pages。
+
+## 启用后台编辑（GitHub Actions）
+
+1. **确认 workflow 文件存在**：仓库需要包含 `.github/workflows/update-navigation-data.yml`（已在本仓库提供）。
+2. **创建 Personal Access Token**：在 [GitHub Token 页面](https://github.com/settings/tokens/new?scopes=repo,workflow&description=SimPage%20Admin) 生成一个拥有 `repo` 与 `workflow` 权限的 Token。
+3. **打开后台管理页**：访问 `https://<你的站点>/admin.html`，在弹出的 “GitHub Actions 模式配置” 卡片中填写：
+   - 仓库所有者（Owner）
+   - 仓库名称（Repository）
+   - 分支（默认为 `main`）
+   - Personal Access Token
+4. **点击“保存并验证配置”**：前端会自动校验配置并触发一次数据加载。
+5. **开始编辑**：编辑完成后点击 “保存修改”，前端会触发 workflow，数据将在 1-2 分钟后写入仓库并自动部署。
+
+> **安全性说明**：Token 仅保存在浏览器本地 `localStorage` 中，不会发送到任何第三方服务器。GitHub Actions 会将数据提交到仓库，可通过 Git 历史随时回滚。
 
 ## 自定义内容
 
