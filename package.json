@@ -4,11 +4,14 @@
   "description": "现代化导航页，支持后台编辑与文件数据存储",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "deploy:cloudflare": "wrangler deploy",
+    "dev:cloudflare": "wrangler dev"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2"
-  }
+  },
+  "devDependencies": {}
 }

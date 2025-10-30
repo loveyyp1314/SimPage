@@ -1,0 +1,31 @@
+name = "simpage-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# KV Namespaces for data storage
+[[kv_namespaces]]
+binding = "NAVIGATION_DATA"
+id = "YOUR_KV_NAMESPACE_ID_HERE"
+
+[[kv_namespaces]]
+binding = "NAVIGATION_SESSIONS"
+id = "YOUR_SESSION_KV_NAMESPACE_ID_HERE"
+
+# Environment variables
+[env.production.vars]
+DEFAULT_WEATHER_CITY = "北京"
+
+# Workers Sites for static files
+[site]
+bucket = "./public"
+
+# Build configuration
+[build]
+command = ""
+cwd = ""
+watch_paths = []
+
+# Routes (when deployed with custom domain)
+# routes = [
+#   { pattern = "example.com/*", zone_name = "example.com" }
+# ]
