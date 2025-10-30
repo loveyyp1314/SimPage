@@ -130,87 +130,92 @@ docker compose restart navigation
 
 ---
 
-## Cloudflare Workers 部署
+## Cloudflare Workers 部署（Windows 官方流程）
 
-利用 Cloudflare 的边缘计算平台，无需服务器即可部署。
+利用 Cloudflare 的边缘计算平台，无需服务器即可部署。以下步骤基于 Cloudflare 官方在 Windows 环境下的推荐操作，详细图文指南可查看 [README-CLOUDFLARE.md](./README-CLOUDFLARE.md)。
 
 ### 前置要求
 
-- Cloudflare 账号
-- Wrangler CLI
+- Cloudflare 账号（https://dash.cloudflare.com/sign-up）
+- Windows 10/11 系统
+- Node.js 18+（从 https://nodejs.org 下载并安装）
 
-### 部署步骤
+### 部署流程（PowerShell）
 
-1. 安装 Wrangler CLI：
-   ```bash
-   npm install -g wrangler
+1. 打开 **Windows PowerShell** 或 **Windows Terminal**，验证 Node.js：
+   ```powershell
+   node --version
+   npm --version
    ```
 
-2. 登录 Cloudflare：
-   ```bash
+2. 安装并校验 Wrangler CLI：
+   ```powershell
+   npm install -g wrangler
+   wrangler --version
+   ```
+   如遇安装问题，可参考 Cloudflare 官方安装指南：https://developers.cloudflare.com/workers/wrangler/install-and-update/
+
+3. 登录 Cloudflare 账号：
+   ```powershell
    wrangler login
    ```
+   浏览器授权成功后回到 PowerShell 继续操作。
 
-3. 创建 KV 命名空间：
-   ```bash
-   # 创建数据存储命名空间
+4. 下载项目并进入项目目录：
+   ```powershell
+   cd C:\Users\你的用户名\Documents
+   git clone <项目地址>
+   cd simpage
+   ```
+   若未安装 Git，可从仓库页面直接下载 ZIP 并解压。
+
+5. 创建 Cloudflare KV 命名空间并记录输出的 ID：
+   ```powershell
    wrangler kv:namespace create "NAVIGATION_DATA"
-   
-   # 创建会话存储命名空间
    wrangler kv:namespace create "NAVIGATION_SESSIONS"
    ```
 
-4. 更新 `wrangler.toml` 配置：
-   
-   将创建的 KV 命名空间 ID 填入配置文件：
+6. 编辑 `wrangler.toml`，将命名空间 ID 填入对应位置：
    ```toml
    [[kv_namespaces]]
    binding = "NAVIGATION_DATA"
-   id = "your_namespace_id_here"
+   id = "abc123xyz456"  # 使用实际输出的 ID
    
    [[kv_namespaces]]
    binding = "NAVIGATION_SESSIONS"
-   id = "your_session_namespace_id_here"
+   id = "def456ghi789"  # 使用实际输出的 ID
    ```
 
-5. 部署到 Cloudflare Workers：
-   ```bash
+7. 部署到 Cloudflare Workers：
+   ```powershell
    wrangler deploy
    ```
-
-6. 访问应用：
-   - Wrangler 会输出部署后的 URL，如：`https://simpage-worker.your-subdomain.workers.dev`
+   成功后会返回类似 `https://simpage-worker.your-subdomain.workers.dev` 的访问地址。
 
 ### 自定义域名
 
 在 Cloudflare Dashboard 中为 Worker 添加自定义域名：
 
-1. 进入 Workers & Pages > 你的 Worker
-2. 点击 "Custom Domains"
-3. 添加你的域名
+1. 进入 **Workers & Pages > 你的 Worker**
+2. 点击 **Custom Domains**
+3. 输入你的域名或子域名并完成绑定
+
+也可以在 `wrangler.toml` 中添加 `routes` 后重新部署。
 
 ### 环境变量配置
 
-在 `wrangler.toml` 中设置环境变量：
+在 `wrangler.toml` 中设置生产环境变量：
 
 ```toml
 [env.production.vars]
 DEFAULT_WEATHER_CITY = "上海"
 ```
 
-### 注意事项
+### 重要提示
 
-- Cloudflare Workers 有请求时间限制（CPU 时间）
-- KV 存储有延迟（最终一致性）
-- 免费计划每天有 10 万次请求限制
-
-### 限制说明
-
-由于 Cloudflare Workers 的限制，`worker.js` 中的密码哈希功能使用了简化的实现。在生产环境中，建议：
-
-1. 使用更安全的密码哈希算法
-2. 考虑使用 Cloudflare Access 进行身份验证
-3. 定期更换管理员密码
+- Cloudflare Workers 免费计划每天包含 10 万次请求
+- KV 存储为最终一致性，写入后全球同步可能需要几秒到一分钟
+- `worker.js` 中的密码哈希为轻量实现，生产环境建议配合 Cloudflare Access 或强密码策略
 
 ---
 
@@ -287,8 +292,8 @@ npm install  # Node.js
 docker compose build && docker compose up -d  # Docker
 ```
 
-### Cloudflare Workers
-```bash
+### Cloudflare Workers (Windows PowerShell)
+```powershell
 git pull
 wrangler deploy
 ```
