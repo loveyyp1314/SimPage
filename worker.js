@@ -26,7 +26,7 @@ const WEATHER_FETCH_HEADERS = Object.freeze({
 });
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, _ctx) {
     const corsHeaders = buildCorsHeaders(env);
 
     if (request.method === "OPTIONS") {
@@ -74,7 +74,11 @@ export default {
         return await handlePasswordUpdate(request, env, corsHeaders);
       }
 
-      return notFoundResponse(corsHeaders);
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return notFoundResponse(corsHeaders);
+      }
+
+      return await handleStaticAsset(request, env, corsHeaders);
     } catch (error) {
       console.error("SimPage Worker error:", error);
       return jsonResponse({ success: false, message: "服务器内部错误" }, 500, corsHeaders);
@@ -622,4 +626,97 @@ function getWeatherDescription(code) {
     99: "雷雨伴大冰雹",
   };
   return mapping[code] || "天气良好";
+}
+
+async function handleStaticAsset(request, env, corsHeaders) {
+  if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
+    return notFoundResponse(corsHeaders);
+  }
+
+  try {
+    const directResponse = await env.ASSETS.fetch(request);
+    if (directResponse && directResponse.status !== 404) {
+      return applyCorsHeaders(directResponse, corsHeaders);
+    }
+
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return notFoundResponse(corsHeaders);
+    }
+
+    const url = new URL(request.url);
+    const candidates = buildStaticAssetCandidates(url.pathname);
+
+    for (const candidate of candidates) {
+      const candidateUrl = new URL(candidate, url);
+      const candidateRequest = new Request(candidateUrl.toString(), request);
+      const candidateResponse = await env.ASSETS.fetch(candidateRequest);
+      if (candidateResponse && candidateResponse.status !== 404) {
+        return applyCorsHeaders(candidateResponse, corsHeaders);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching static asset:", error);
+  }
+
+  return notFoundResponse(corsHeaders);
+}
+
+function buildStaticAssetCandidates(pathname) {
+  const candidates = [];
+  const normalised = typeof pathname === "string" && pathname ? pathname : "/";
+
+  if (normalised === "/" || normalised === "") {
+    candidates.push("/index.html");
+    return candidates;
+  }
+
+  const trimmed = normalised.replace(/\/+$/, "") || "/";
+
+  if (trimmed !== "/" && !hasFileExtension(trimmed)) {
+    candidates.push(`${trimmed}.html`);
+    candidates.push(`${trimmed}/index.html`);
+  }
+
+  candidates.push("/index.html");
+
+  const unique = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const value = candidate.startsWith("/") ? candidate : `/${candidate}`;
+    if (seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    unique.push(value);
+  }
+
+  return unique;
+}
+
+function hasFileExtension(pathname) {
+  if (typeof pathname !== "string" || !pathname) {
+    return false;
+  }
+  const segments = pathname.split("/");
+  const last = segments[segments.length - 1];
+  if (!last || last.startsWith(".")) {
+    return false;
+  }
+  const dotIndex = last.lastIndexOf(".");
+  return dotIndex > 0 && dotIndex < last.length - 1;
+}
+
+function applyCorsHeaders(response, corsHeaders) {
+  if (!response || !corsHeaders || Object.keys(corsHeaders).length === 0) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
