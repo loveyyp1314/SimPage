@@ -173,27 +173,30 @@ docker compose up -d
 
 ### 🌐 无服务器部署
 
-#### 3. Cloudflare Workers 部署
-利用全球边缘网络，无需服务器：
+#### 3. Cloudflare Workers 部署（Windows 官方流程）
+利用全球边缘网络，无需服务器，按 Cloudflare 官方推荐在 Windows 上完成部署：
 
-1. 安装 Wrangler CLI：
-   ```bash
+1. 打开 **Windows PowerShell**，安装并登录 Wrangler：
+   ```powershell
    npm install -g wrangler
+   wrangler --version
    wrangler login
    ```
 
-2. 创建 KV 命名空间：
-   ```bash
+2. 克隆项目并进入目录，创建 KV 命名空间（记录输出的 ID）：
+   ```powershell
+   git clone <项目地址>
+   cd simpage
    wrangler kv:namespace create "NAVIGATION_DATA"
    wrangler kv:namespace create "NAVIGATION_SESSIONS"
    ```
 
-3. 更新 `wrangler.toml` 配置中的命名空间 ID
-
-4. 部署：
-   ```bash
+3. 将命名空间 ID 写入 `wrangler.toml` 后执行部署：
+   ```powershell
    wrangler deploy
    ```
+
+> 详细的图文步骤、常见问题及 Windows 环境配置，可参考 [README-CLOUDFLARE.md](./README-CLOUDFLARE.md)。
 
 **特点**：
 - ✅ 全球 CDN 加速，访问速度快
