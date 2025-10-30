@@ -1,5 +1,5 @@
-import { scrypt } from "@noble/hashes/scrypt";
-import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
+import { scrypt } from "@noble/hashes/scrypt.js";
+import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 
 const SESSION_TTL_SECONDS = 12 * 60 * 60; // 12 小时
 const AUTH_HEADER_PREFIX = "Bearer ";
