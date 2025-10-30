@@ -1,5 +1,4 @@
 import { renderMarkdown } from "./markdown.js";
-import * as GitHubAdapter from "./github-pages-adapter.js";
 
 const appsEditor = document.getElementById("apps-editor");
 const bookmarksEditor = document.getElementById("bookmarks-editor");
@@ -50,15 +49,6 @@ const confirmPasswordInput = document.getElementById("confirm-password");
 const passwordMessage = document.getElementById("password-message");
 const backToTopButton = document.getElementById("back-to-top");
 const faviconLink = document.getElementById("site-favicon");
-const githubLoginForm = document.getElementById("github-login-form");
-const githubOwnerInput = document.getElementById("github-owner");
-const githubRepoInput = document.getElementById("github-repo");
-const githubBranchInput = document.getElementById("github-branch");
-const githubTokenInput = document.getElementById("github-token");
-const githubLoginError = document.getElementById("github-login-error");
-const githubLoginMessage = document.getElementById("github-login-message");
-const githubDetectButton = document.getElementById("github-detect-button");
-const githubClearButton = document.getElementById("github-clear-button");
 const modeBadge = document.getElementById("mode-badge");
 
 const typeLabels = {
@@ -131,9 +121,6 @@ const state = {
 let authToken = "";
 let isDirty = false;
 let modalContext = null;
-let isGitHubPagesMode = false;
-let githubConfig = null;
-let backendAvailable = true;
 let latestFullData = {
   apps: [],
   bookmarks: [],
@@ -324,255 +311,15 @@ function cloneItems(items) {
   return items.map((item) => ({ ...item }));
 }
 
-function normaliseGitHubConfig(raw) {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-
-  const owner = typeof raw.owner === "string" ? raw.owner.trim() : "";
-  const repo = typeof raw.repo === "string" ? raw.repo.trim() : "";
-  const branch =
-    typeof raw.branch === "string" && raw.branch.trim() ? raw.branch.trim() : "main";
-  const workflow =
-    typeof raw.workflow === "string" && raw.workflow.trim()
-      ? raw.workflow.trim()
-      : "update-navigation-data.yml";
-  const token = typeof raw.token === "string" ? raw.token.trim() : "";
-  const authorName = typeof raw.authorName === "string" ? raw.authorName.trim() : "";
-  const authorEmail = typeof raw.authorEmail === "string" ? raw.authorEmail.trim() : "";
-
-  if (!owner || !repo || !token) {
-    return null;
-  }
-
-  return {
-    owner,
-    repo,
-    branch,
-    workflow,
-    token,
-    authorName,
-    authorEmail,
-    enabled: true,
-  };
-}
-
-function populateGitHubForm(config = null, options = {}) {
-  if (githubOwnerInput) {
-    githubOwnerInput.value = config?.owner || "";
-  }
-  if (githubRepoInput) {
-    githubRepoInput.value = config?.repo || "";
-  }
-  if (githubBranchInput) {
-    githubBranchInput.value = config?.branch || "main";
-  }
-  if (githubTokenInput && options.includeToken !== false) {
-    githubTokenInput.value = config?.token || "";
-  }
-}
-
-function setGitHubLoginError(message) {
-  if (!githubLoginError) return;
-  if (message) {
-    githubLoginError.textContent = message;
-    githubLoginError.hidden = false;
-  } else {
-    githubLoginError.textContent = "";
-    githubLoginError.hidden = true;
-  }
-}
-
-function setGitHubLoginMessage(message, variant = "neutral") {
-  if (!githubLoginMessage) return;
-  if (!message) {
-    githubLoginMessage.textContent = "";
-    githubLoginMessage.hidden = true;
-    githubLoginMessage.removeAttribute("data-variant");
-    return;
-  }
-  githubLoginMessage.textContent = message;
-  githubLoginMessage.hidden = false;
-  if (variant && variant !== "neutral") {
-    githubLoginMessage.dataset.variant = variant;
-  } else {
-    githubLoginMessage.removeAttribute("data-variant");
-  }
-}
-
 function updateModeBadge(text) {
   if (!modeBadge) return;
   modeBadge.textContent = text || "后台管理";
 }
 
-function updatePasswordSectionVisibility() {
-  const passwordSection = passwordForm ? passwordForm.closest(".admin-section") : null;
-  if (!passwordSection) return;
-  if (isGitHubPagesMode) {
-    passwordSection.setAttribute("hidden", "true");
-  } else {
-    passwordSection.removeAttribute("hidden");
-  }
-}
-
 function updateLogoutButtonState() {
   if (!logoutButton) return;
-  if (isGitHubPagesMode) {
-    logoutButton.textContent = "断开 GitHub";
-    logoutButton.disabled = !githubConfig;
-  } else {
-    logoutButton.textContent = "退出登录";
-    logoutButton.disabled = !authToken;
-  }
-}
-
-function enableGitHubMode(rawConfig, options = {}) {
-  const normalised = normaliseGitHubConfig(rawConfig);
-  if (!normalised) {
-    return false;
-  }
-
-  githubConfig = normalised;
-  isGitHubPagesMode = true;
-  backendAvailable = false;
-
-  if (options.persist !== false) {
-    GitHubAdapter.saveGitHubConfig(normalised);
-  }
-
-  if (options.populate !== false) {
-    populateGitHubForm(normalised, { includeToken: options.includeToken !== false });
-  }
-
-  document.body?.classList.add("github-actions-mode");
-  updateModeBadge("GitHub Actions 模式");
-  updatePasswordSectionVisibility();
-  updateLogoutButtonState();
-  return true;
-}
-
-function disableGitHubMode(options = {}) {
-  if (options.persist !== false) {
-    GitHubAdapter.clearGitHubConfig();
-  }
-  githubConfig = null;
-  isGitHubPagesMode = false;
-  backendAvailable = true;
-  document.body?.classList.remove("github-actions-mode");
-  updateModeBadge("");
-  updatePasswordSectionVisibility();
-  updateLogoutButtonState();
-}
-
-function getGitHubFormValues() {
-  return {
-    owner: githubOwnerInput ? githubOwnerInput.value : "",
-    repo: githubRepoInput ? githubRepoInput.value : "",
-    branch: githubBranchInput ? githubBranchInput.value : "",
-    token: githubTokenInput ? githubTokenInput.value : "",
-  };
-}
-
-function setGitHubFormDisabled(disabled) {
-  if (!githubLoginForm) return;
-  const controls = githubLoginForm.querySelectorAll("input, button");
-  controls.forEach((control) => {
-    control.disabled = disabled;
-  });
-}
-
-function handleGitHubDetect(event) {
-  event?.preventDefault?.();
-  setGitHubLoginError("");
-  const detected = GitHubAdapter.detectGitHubRepo();
-  if (!detected) {
-    setGitHubLoginMessage("未能自动检测仓库，请手动填写。", "neutral");
-    return;
-  }
-  if (githubOwnerInput && !githubOwnerInput.value.trim()) {
-    githubOwnerInput.value = detected.owner;
-  }
-  if (githubRepoInput && !githubRepoInput.value.trim()) {
-    githubRepoInput.value = detected.repo;
-  }
-  if (githubBranchInput && !githubBranchInput.value.trim()) {
-    githubBranchInput.value = "main";
-  }
-  setGitHubLoginMessage("已自动填充仓库信息，请补充 Token 并保存。", "neutral");
-}
-
-function handleGitHubClear(event) {
-  event?.preventDefault?.();
-  disableGitHubMode();
-  populateGitHubForm({ owner: "", repo: "", branch: "main", token: "" });
-  latestFullData = {
-    apps: [],
-    bookmarks: [],
-    settings: {
-      siteName: defaultSettings.siteName,
-      siteLogo: defaultSettings.siteLogo,
-      greeting: defaultSettings.greeting,
-      footer: defaultSettings.footer,
-      weather: { ...defaultSettings.weather },
-    },
-    stats: { ...DEFAULT_STATS },
-    admin: { ...DEFAULT_ADMIN_DATA },
-  };
-  state.apps = [];
-  state.bookmarks = [];
-  state.settings = normaliseSettingsIncoming(null);
-  applySettingsToInputs(state.settings);
-  render();
-  resetDirty();
-  setStatus("已清除 GitHub 配置。", "neutral");
-  setGitHubLoginMessage("GitHub 配置已清除，请重新配置。", "neutral");
-  setGitHubLoginError("");
-  showAuthOverlay();
-}
-
-async function handleGitHubLoginSubmit(event) {
-  event?.preventDefault?.();
-  if (!githubLoginForm) return;
-
-  const raw = getGitHubFormValues();
-  const config = normaliseGitHubConfig(raw);
-  if (!config) {
-    setGitHubLoginError("请完整填写仓库所有者、仓库名称和 Token。");
-    return;
-  }
-
-  setGitHubLoginError("");
-  setGitHubLoginMessage("正在验证配置...", "neutral");
-  setGitHubFormDisabled(true);
-
-  try {
-    const validation = await GitHubAdapter.validateGitHubConfig(config);
-    if (!validation.valid) {
-      setGitHubLoginError(validation.message || "配置验证失败，请检查后重试。");
-      return;
-    }
-
-    if (validation.warning) {
-      setGitHubLoginMessage(validation.warning, "warning");
-    } else {
-      setGitHubLoginMessage("配置验证成功，正在加载数据...", "success");
-    }
-
-    enableGitHubMode(config);
-    setStatus("正在从 GitHub 加载数据...", "neutral");
-    const success = await loadDataFromGitHub(true);
-    if (!success) {
-      setGitHubLoginMessage("无法从 GitHub 加载数据，请确认仓库权限与文件是否存在。", "error");
-      return;
-    }
-    hideAuthOverlay();
-    setStatus("数据已从 GitHub 加载。", "success");
-  } catch (error) {
-    console.error("GitHub 配置验证失败", error);
-    setGitHubLoginError(error.message || "验证失败，请稍后再试。");
-  } finally {
-    setGitHubFormDisabled(false);
-  }
+  logoutButton.textContent = "退出登录";
+  logoutButton.disabled = !authToken;
 }
 
 function collectWeatherSettingsFromInputs(previous = state.settings.weather) {
@@ -1206,10 +953,6 @@ function buildAuthHeaders(extra = {}) {
 }
 
 async function loadData(showStatus = true) {
-  if (isGitHubPagesMode) {
-    return loadDataFromGitHub(showStatus);
-  }
-  
   if (!authToken) return false;
   try {
     const response = await fetch(DATA_ENDPOINT, {
@@ -1242,30 +985,7 @@ async function loadData(showStatus = true) {
   }
 }
 
-async function loadDataFromGitHub(showStatus = true) {
-  if (!githubConfig) return false;
-  
-  try {
-    const data = await GitHubAdapter.loadDataFromGitHub(githubConfig);
-    updateStateFromResponse(data);
-    hideAuthOverlay();
-    if (logoutButton) logoutButton.disabled = false;
-    if (showStatus) {
-      setStatus("数据已从 GitHub 加载。", "success");
-    }
-    return true;
-  } catch (error) {
-    console.error("从 GitHub 加载数据失败", error);
-    setStatus(error.message || "无法从 GitHub 加载数据", "error");
-    return false;
-  }
-}
-
 async function saveChanges() {
-  if (isGitHubPagesMode) {
-    return saveChangesToGitHub();
-  }
-  
   if (!saveButton) return;
   if (!authToken) {
     setStatus("请登录后再保存。", "error");
@@ -1351,85 +1071,6 @@ async function saveChanges() {
   }
 }
 
-async function saveChangesToGitHub() {
-  if (!saveButton) return;
-  if (!githubConfig) {
-    setStatus("GitHub 配置缺失，请先配置。", "error");
-    return;
-  }
-
-  saveButton.disabled = true;
-  setStatus("正在保存修改到 GitHub...", "neutral");
-
-  const weatherValidation = validateWeatherSettings(state.settings.weather);
-  if (!weatherValidation.valid) {
-    setStatus(weatherValidation.message, "error");
-    saveButton.disabled = false;
-    if (weatherValidation.focus && typeof weatherValidation.focus.focus === "function") {
-      weatherValidation.focus.focus();
-    }
-    return;
-  }
-
-  state.settings.weather = {
-    ...state.settings.weather,
-    city: weatherValidation.value.city,
-  };
-
-  if (siteWeatherCityInput) {
-    siteWeatherCityInput.value = state.settings.weather.city;
-  }
-  updateWeatherSummary(state.settings.weather);
-
-  const payloadSettings = buildSettingsPayload(state.settings);
-  if (!payloadSettings.siteName) {
-    setStatus("请填写网站名称。", "error");
-    saveButton.disabled = false;
-    if (siteNameInput) siteNameInput.focus();
-    return;
-  }
-
-  const payload = {
-    apps: state.apps.map((item) => ({
-      id: item.id,
-      name: item.name,
-      url: item.url,
-      description: item.description,
-      icon: item.icon,
-    })),
-    bookmarks: state.bookmarks.map((item) => ({
-      id: item.id,
-      name: item.name,
-      url: item.url,
-      description: item.description,
-      icon: item.icon,
-      category: item.category || "",
-    })),
-    settings: payloadSettings,
-    stats: normaliseStatsIncoming(latestFullData.stats),
-    admin: normaliseAdminIncoming(latestFullData.admin),
-  };
-
-  try {
-    const result = await GitHubAdapter.saveDataViaGitHub(payload, githubConfig);
-    
-    updateStateFromResponse(result.data);
-    setStatus(
-      "保存成功！GitHub Actions 正在更新数据，预计 1-2 分钟后生效。",
-      "success"
-    );
-    setTimeout(() => {
-      loadDataFromGitHub(false).catch((refreshError) => {
-        console.warn("刷新 GitHub 数据失败", refreshError);
-      });
-    }, 8000);
-  } catch (error) {
-    console.error("保存到 GitHub 失败", error);
-    setStatus(error.message || "保存失败，请稍后再试。", "error");
-    if (saveButton) saveButton.disabled = false;
-  }
-}
-
 async function extractErrorMessage(response) {
   try {
     const data = await response.json();
@@ -1482,11 +1123,6 @@ function handleUnauthorized(message) {
 }
 
 function handleLogout() {
-  if (isGitHubPagesMode) {
-    handleGitHubClear();
-    return;
-  }
-
   clearStoredToken();
   authToken = "";
   state.apps = [];
@@ -1508,27 +1144,17 @@ function showAuthOverlay() {
   authOverlay.hidden = false;
   setLoginError("");
   setPasswordMessage("");
-  setGitHubLoginError("");
-  setGitHubLoginMessage("", "neutral");
 
-  if (!backendAvailable || isGitHubPagesMode) {
-    if (loginForm) loginForm.style.display = "none";
-    if (githubLoginForm) githubLoginForm.style.display = "block";
-    if (githubOwnerInput) {
-      setTimeout(() => {
-        const firstEmpty =
-          githubOwnerInput && !githubOwnerInput.value.trim()
-            ? githubOwnerInput
-            : githubRepoInput && !githubRepoInput.value.trim()
-            ? githubRepoInput
-            : githubTokenInput && !githubTokenInput.value.trim()
-            ? githubTokenInput
-            : null;
-        if (firstEmpty) {
-          firstEmpty.focus();
-        } else if (githubOwnerInput) {
-          githubOwnerInput.focus();
-        }
+  if (loginForm) loginForm.style.display = "block";
+  if (loginPasswordInput) {
+    loginPasswordInput.disabled = false;
+    loginPasswordInput.value = "";
+    setTimeout(() => {
+      loginPasswordInput.focus();
+    }, 0);
+  }
+  if (logoutButton) logoutButton.disabled = true;
+}
       }, 0);
     }
     return;
@@ -1551,10 +1177,7 @@ function hideAuthOverlay() {
   authOverlay.hidden = true;
   setLoginError("");
   setPasswordMessage("");
-  setGitHubLoginError("");
-  setGitHubLoginMessage("", "neutral");
   if (loginForm) loginForm.style.display = "";
-  if (githubLoginForm) githubLoginForm.style.display = "";
   if (loginPasswordInput) {
     loginPasswordInput.value = "";
     loginPasswordInput.disabled = false;
@@ -1845,24 +1468,13 @@ function bindEvents() {
     loginForm.addEventListener("submit", handleLoginSubmit);
   }
 
-  if (githubLoginForm) {
-    githubLoginForm.addEventListener("submit", handleGitHubLoginSubmit);
-    const githubInputs = githubLoginForm.querySelectorAll("input");
-    githubInputs.forEach((input) => {
-      input.addEventListener("input", () => {
-        setGitHubLoginError("");
-        setGitHubLoginMessage("", "neutral");
-      });
+  );
     });
   }
 
-  if (githubDetectButton) {
-    githubDetectButton.addEventListener("click", handleGitHubDetect);
-  }
+  
 
-  if (githubClearButton) {
-    githubClearButton.addEventListener("click", handleGitHubClear);
-  }
+  
 
   if (logoutButton) {
     logoutButton.addEventListener("click", handleLogout);
@@ -1903,43 +1515,7 @@ async function initialise() {
   applySettingsToInputs(state.settings);
   render();
   resetDirty();
-  populateGitHubForm({ owner: "", repo: "", branch: "main", token: "" }, { includeToken: false });
-  updatePasswordSectionVisibility();
   updateLogoutButtonState();
-
-  const storedGitHubConfig = GitHubAdapter.getGitHubConfig();
-  if (enableGitHubMode(storedGitHubConfig, { persist: false, includeToken: true })) {
-    setStatus("正在从 GitHub 加载数据...", "neutral");
-    const success = await loadDataFromGitHub(true);
-    if (!success) {
-      showAuthOverlay();
-      setGitHubLoginMessage("无法从 GitHub 加载数据，请检查配置。", "error");
-    } else {
-      hideAuthOverlay();
-    }
-    updateLogoutButtonState();
-    return;
-  }
-
-  disableGitHubMode({ persist: false });
-
-  try {
-    backendAvailable = await GitHubAdapter.checkBackendAvailability();
-  } catch (error) {
-    console.warn("检测后端可用性失败", error);
-    backendAvailable = false;
-  }
-
-  if (!backendAvailable) {
-    const detected = GitHubAdapter.detectGitHubRepo();
-    if (detected) {
-      populateGitHubForm({ owner: detected.owner, repo: detected.repo, branch: "main" }, { includeToken: false });
-    }
-    setStatus("未检测到后台服务，请配置 GitHub Actions 模式以保存数据。", "neutral");
-    showAuthOverlay();
-    updateLogoutButtonState();
-    return;
-  }
 
   const storedToken = loadStoredToken();
   if (storedToken) {

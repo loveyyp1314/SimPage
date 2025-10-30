@@ -201,22 +201,6 @@ docker compose up -d
 - ✅ 免费额度每天 10 万次请求
 - ✅ 数据存储在 Cloudflare KV
 
-#### 4. GitHub Pages 部署
-完全免费的静态部署方案：
-
-1. Fork 本仓库到你的 GitHub 账号
-2. 在仓库设置中启用 GitHub Pages
-   - 进入 `Settings` > `Pages`
-   - Source 选择 `Deploy from a branch`
-   - Branch 选择 `main`，目录选择 `/public`
-3. 访问 `https://<你的用户名>.github.io/<仓库名>/`
-
-**特点**：
-- ✅ 完全免费
-- ✅ 支持自定义域名
-- ⚠️ 仅支持静态内容（无后台编辑功能）
-- ⚠️ 数据存储在浏览器 localStorage（仅本地）
-
 ### 📊 部署方案对比
 
 | 部署方式 | 难度 | 费用 | 数据持久化 | 后台功能 | 推荐场景 |
@@ -224,7 +208,6 @@ docker compose up -d
 | Node.js | ⭐⭐ | 💰💰 | ✅ 文件存储 | ✅ 完整支持 | 有服务器的用户 |
 | Docker | ⭐ | 💰💰 | ✅ 数据卷 | ✅ 完整支持 | 喜欢容器化的用户 |
 | Cloudflare Workers | ⭐⭐⭐ | 💰 免费层 | ✅ KV 存储 | ✅ 完整支持 | 追求高性能和全球访问 |
-| GitHub Pages | ⭐ | 💰 完全免费 | ⚠️ 仅本地 | ❌ 仅查看 | 个人静态导航页 |
 
 ### 📖 详细部署文档
 

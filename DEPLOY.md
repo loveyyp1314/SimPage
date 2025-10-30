@@ -1,13 +1,12 @@
 # 部署指南
 
-本项目支持多种部署方式，包括传统的 Node.js 服务器、Docker、Cloudflare Workers 和 GitHub Pages。
+本项目支持多种部署方式，包括传统的 Node.js 服务器、Docker、Cloudflare Workers。
 
 ## 目录
 
 - [Node.js 部署](#nodejs-部署)
 - [Docker Compose 部署](#docker-compose-部署)
 - [Cloudflare Workers 部署](#cloudflare-workers-部署)
-- [GitHub Pages 部署](#github-pages-部署)
 
 ---
 
@@ -215,95 +214,6 @@ DEFAULT_WEATHER_CITY = "上海"
 
 ---
 
-## GitHub Pages 部署
-
-纯静态部署，适合个人使用。
-
-### 特点
-
-- ✅ 完全免费
-- ✅ 自动部署
-- ✅ 支持自定义域名
-- ⚠️ 需要手动编辑文件来修改内容
-- ⚠️ 无后台管理界面（前端页面正常工作）
-
-### 部署步骤
-
-1. Fork 本仓库到你的 GitHub 账号
-
-2. 在仓库设置中启用 GitHub Pages：
-   - 进入 `Settings` > `Pages`
-   - Source 选择 `Deploy from a branch`
-   - Branch 选择 `main`
-   - Folder 选择 `/public`
-
-3. 等待部署完成（通常 1-2 分钟）
-
-4. 访问你的站点：
-   - `https://<your-username>.github.io/<repo-name>/`
-
-### 自定义内容
-
-由于 GitHub Pages 只能托管静态文件，你需要手动编辑文件：
-
-1. 编辑 `public/index.html` 修改页面标题
-2. 修改 `public/styles.css` 自定义样式
-3. 在 `public` 目录下的 JavaScript 文件中硬编码你的导航数据
-
-**注意**：前端会尝试从 API 加载数据，如果失败会使用内置的默认数据。你可以修改 JavaScript 文件中的默认数据来自定义内容
-
-### 自定义域名
-
-1. 在 GitHub Pages 设置中添加自定义域名
-2. 在你的 DNS 提供商处添加 CNAME 记录指向 `<your-username>.github.io`
-
-### GitHub Pages 限制
-
-- 页面只能访问静态文件（HTML/CSS/JS）
-- 后台功能使用 localStorage 实现
-- 数据不会在多个设备间同步
-- 清除浏览器数据会丢失所有配置
-- 后台密码为明文存储在 localStorage（仅用于个人使用）
-
-### 推荐使用场景
-
-GitHub Pages 部署适合：
-- 个人导航页
-- 单设备使用
-- 不需要数据同步
-- 想要完全免费的解决方案
-
-如果需要多设备同步或更强的安全性，建议使用 Node.js、Docker 或 Cloudflare Workers 部署方案。
-
-### 数据管理
-
-GitHub Pages 版本的数据存储在浏览器的 localStorage 中：
-
-**导出数据**：
-```javascript
-// 在浏览器控制台执行
-const data = localStorage.getItem('simpage_data');
-console.log(data);
-// 复制输出的 JSON 数据进行备份
-```
-
-**导入数据**：
-```javascript
-// 在浏览器控制台执行
-const data = '...'; // 粘贴你的备份数据
-localStorage.setItem('simpage_data', data);
-location.reload();
-```
-
-**重置数据**：
-```javascript
-// 在浏览器控制台执行
-localStorage.clear();
-location.reload();
-```
-
----
-
 ## 选择合适的部署方式
 
 | 部署方式 | 难度 | 费用 | 数据持久化 | 性能 | 推荐场景 |
@@ -311,11 +221,9 @@ location.reload();
 | Node.js | ⭐⭐ | 💰💰 | ✅ 文件 | ⭐⭐⭐ | 有 VPS 的用户 |
 | Docker | ⭐ | 💰💰 | ✅ 数据卷 | ⭐⭐⭐ | 喜欢容器化的用户 |
 | Cloudflare Workers | ⭐⭐⭐ | 💰 免费层 | ✅ KV 存储 | ⭐⭐⭐⭐⭐ | 追求高性能和全球访问 |
-| GitHub Pages | ⭐ | 💰 完全免费 | ⚠️ localStorage | ⭐⭐ | 个人使用，单设备 |
 
 ### 推荐方案
 
-- **个人使用**：GitHub Pages（免费且简单）
 - **小型团队**：Docker Compose（易于管理和备份）
 - **高流量场景**：Cloudflare Workers（全球 CDN + 边缘计算）
 - **已有服务器**：Node.js + PM2（传统稳定）
@@ -368,17 +276,6 @@ chmod 644 data/navigation.json
 **问题：超出 CPU 限制**
 - 优化代码或升级到付费计划
 
-### GitHub Pages 问题
-
-**问题：页面 404**
-- 确认 GitHub Actions 成功完成
-- 检查 Pages 设置是否启用
-- 确认 Source 选择了 "GitHub Actions"
-
-**问题：数据丢失**
-- GitHub Pages 使用 localStorage，清除浏览器数据会丢失所有配置
-- 建议定期导出数据备份
-
 ---
 
 ## 更新部署
@@ -394,12 +291,6 @@ docker compose build && docker compose up -d  # Docker
 ```bash
 git pull
 wrangler deploy
-```
-
-### GitHub Pages
-```bash
-git pull
-git push origin main
 ```
 
 ---

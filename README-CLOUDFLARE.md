@@ -346,23 +346,6 @@ zone_name = "example.com"
    wrangler kv:key put "navigation" --path=backup.json --namespace-id=你的ID
    ```
 
-### 从 GitHub Pages 迁移
-
-由于 GitHub Pages 数据存储在 localStorage，需要：
-
-1. 在浏览器控制台导出数据：
-   ```javascript
-   const data = localStorage.getItem('simpage_data');
-   console.log(data);
-   ```
-
-2. 将数据保存为 JSON 文件
-
-3. 导入到 Worker KV：
-   ```bash
-   wrangler kv:key put "navigation" --path=data.json --namespace-id=你的ID
-   ```
-
 ## 最佳实践
 
 1. **定期备份**：定期备份 KV 数据
