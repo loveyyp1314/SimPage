@@ -150,9 +150,95 @@
 └── README.md
 ```
 
-## 自定义与部署
+## 部署方案
+
+SimPage 支持多种部署方式，满足不同用户的需求：
+
+### 🚀 快速部署
+
+#### 1. Node.js 部署（推荐）
+适合有服务器或 VPS 的用户：
+```bash
+npm install
+npm start
+```
+访问 `http://localhost:3000` 即可使用。
+
+#### 2. Docker Compose 部署
+最简单的容器化部署：
+```bash
+docker compose up -d
+```
+数据自动持久化，支持一键更新。
+
+### 🌐 无服务器部署
+
+#### 3. Cloudflare Workers 部署
+利用全球边缘网络，无需服务器：
+
+1. 安装 Wrangler CLI：
+   ```bash
+   npm install -g wrangler
+   wrangler login
+   ```
+
+2. 创建 KV 命名空间：
+   ```bash
+   wrangler kv:namespace create "NAVIGATION_DATA"
+   wrangler kv:namespace create "NAVIGATION_SESSIONS"
+   ```
+
+3. 更新 `wrangler.toml` 配置中的命名空间 ID
+
+4. 部署：
+   ```bash
+   wrangler deploy
+   ```
+
+**特点**：
+- ✅ 全球 CDN 加速，访问速度快
+- ✅ 自动扩容，无需运维
+- ✅ 免费额度每天 10 万次请求
+- ✅ 数据存储在 Cloudflare KV
+
+#### 4. GitHub Pages 部署
+完全免费的静态部署方案：
+
+1. Fork 本仓库到你的 GitHub 账号
+2. 在仓库设置中启用 GitHub Pages
+   - 进入 `Settings` > `Pages`
+   - Source 选择 `Deploy from a branch`
+   - Branch 选择 `main`，目录选择 `/public`
+3. 访问 `https://<你的用户名>.github.io/<仓库名>/`
+
+**特点**：
+- ✅ 完全免费
+- ✅ 支持自定义域名
+- ⚠️ 仅支持静态内容（无后台编辑功能）
+- ⚠️ 数据存储在浏览器 localStorage（仅本地）
+
+### 📊 部署方案对比
+
+| 部署方式 | 难度 | 费用 | 数据持久化 | 后台功能 | 推荐场景 |
+|---------|------|------|-----------|---------|---------|
+| Node.js | ⭐⭐ | 💰💰 | ✅ 文件存储 | ✅ 完整支持 | 有服务器的用户 |
+| Docker | ⭐ | 💰💰 | ✅ 数据卷 | ✅ 完整支持 | 喜欢容器化的用户 |
+| Cloudflare Workers | ⭐⭐⭐ | 💰 免费层 | ✅ KV 存储 | ✅ 完整支持 | 追求高性能和全球访问 |
+| GitHub Pages | ⭐ | 💰 完全免费 | ⚠️ 仅本地 | ❌ 仅查看 | 个人静态导航页 |
+
+### 📖 详细部署文档
+
+完整的部署指南请查看 [DEPLOY.md](./DEPLOY.md)，包括：
+- 各部署方式的详细步骤
+- 环境变量配置
+- 自定义域名设置
+- 数据备份与恢复
+- 常见问题排查
+
+## 自定义与管理
 
 - 可在 `navigation.json` 中预先填充企业或个人常用的应用与书签。
-- 部署时，将整个项目放置于 Node.js 运行环境，执行 `npm install && npm start` 即可对外提供服务。
+- 后台管理页面支持可视化编辑，无需手动修改文件。
+- 支持自定义站点名称、Logo、问候语和页脚信息。
 
 祝使用愉快！
