@@ -1350,6 +1350,7 @@ body.admin-body {
   z-index: 3000;
   display: grid;
   place-items: center;
+  gap: 1.5rem;
   padding: 1.5rem;
   background: rgba(15, 23, 42, 0.28);
   backdrop-filter: blur(6px);
@@ -1396,10 +1397,59 @@ body.admin-body {
   color: rgba(31, 41, 55, 0.6);
 }
 
+.auth-hint a {
+  color: rgba(37, 99, 235, 0.9);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.4);
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.auth-hint a:hover,
+.auth-hint a:focus-visible {
+  color: rgba(37, 99, 235, 1);
+  border-color: rgba(37, 99, 235, 0.7);
+  outline: none;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.auth-actions .ghost-button {
+  flex: 1;
+  min-width: 120px;
+}
+
+.auth-actions .primary-button {
+  flex: 1;
+  width: auto;
+  min-width: 160px;
+}
+
 .form-error {
   margin: 0;
   font-size: 0.85rem;
   color: var(--danger);
+}
+
+.auth-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(31, 41, 55, 0.7);
+}
+
+.auth-message[data-variant="success"] {
+  color: var(--success);
+}
+
+.auth-message[data-variant="error"] {
+  color: var(--danger);
+}
+
+.auth-message[data-variant="warning"] {
+  color: #d97706;
 }
 
 .modal {
