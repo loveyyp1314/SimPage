@@ -295,6 +295,27 @@ wrangler kv:key put "navigation" --path=backup.json --namespace-id=你的NAVIGAT
 wrangler kv:key delete "navigation" --namespace-id=你的NAVIGATION_DATA的ID
 ```
 
+⚠️ **重要提示**：删除数据后，系统会在下次访问时自动创建包含以下默认内容的新数据：
+- 5 个默认应用（Figma、Notion、Slack、GitHub、Canva）
+- 5 个默认书签（开源中国、少数派、知乎、即刻、稀土掘金）
+- 默认密码重置为 `admin123`
+
+### 恢复默认数据
+
+如果您的数据出现问题（如缺少默认应用和书签），可以通过以下步骤恢复：
+
+1. 删除现有数据：
+```powershell
+wrangler kv:key delete "navigation" --namespace-id=你的NAVIGATION_DATA的ID
+```
+
+2. 重新部署（如果从旧版本升级）：
+```powershell
+wrangler deploy
+```
+
+3. 刷新浏览器页面，系统会自动创建默认数据
+
 ## 更新部署
 
 当代码更新后，在 PowerShell 中重新部署即可：

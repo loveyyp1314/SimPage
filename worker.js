@@ -19,6 +19,87 @@ const DEFAULT_STATS = Object.freeze({
   visitorCount: 0,
 });
 
+const DEFAULT_APPS = Object.freeze([
+  Object.freeze({
+    id: "app-figma",
+    name: "Figma",
+    url: "https://www.figma.com/",
+    description: "协作式界面设计工具。",
+    icon: "🎨",
+  }),
+  Object.freeze({
+    id: "app-notion",
+    name: "Notion",
+    url: "https://www.notion.so/",
+    description: "多合一的笔记与知识管理平台。",
+    icon: "🗂️",
+  }),
+  Object.freeze({
+    id: "app-slack",
+    name: "Slack",
+    url: "https://slack.com/",
+    description: "团队即时沟通与协作中心。",
+    icon: "💬",
+  }),
+  Object.freeze({
+    id: "app-github",
+    name: "GitHub",
+    url: "https://github.com/",
+    description: "代码托管与协作平台。",
+    icon: "🐙",
+  }),
+  Object.freeze({
+    id: "app-canva",
+    name: "Canva",
+    url: "https://www.canva.com/",
+    description: "简单易用的在线设计工具。",
+    icon: "🖌️",
+  }),
+]);
+
+const DEFAULT_BOOKMARKS = Object.freeze([
+  Object.freeze({
+    id: "bookmark-oschina",
+    name: "开源中国",
+    url: "https://www.oschina.net/",
+    description: "聚焦开源信息与技术社区。",
+    icon: "🌐",
+    category: "技术社区",
+  }),
+  Object.freeze({
+    id: "bookmark-sspai",
+    name: "少数派",
+    url: "https://sspai.com/",
+    description: "关注效率工具与生活方式的媒体。",
+    icon: "📰",
+    category: "效率与生活",
+  }),
+  Object.freeze({
+    id: "bookmark-zhihu",
+    name: "知乎",
+    url: "https://www.zhihu.com/",
+    description: "问答与知识分享社区。",
+    icon: "❓",
+    category: "知识学习",
+  }),
+  Object.freeze({
+    id: "bookmark-jike",
+    name: "即刻",
+    url: "https://m.okjike.com/",
+    description: "兴趣社交与资讯聚合平台。",
+    icon: "📮",
+    category: "资讯聚合",
+  }),
+  Object.freeze({
+    id: "bookmark-juejin",
+    name: "稀土掘金",
+    url: "https://juejin.cn/",
+    description: "开发者技术社区与优质内容。",
+    icon: "💡",
+    category: "技术社区",
+  }),
+]);
+
 const WEATHER_FETCH_HEADERS = Object.freeze({
   Accept: "application/json",
   "User-Agent":
@@ -296,8 +377,8 @@ async function buildDefaultData() {
   const admin = await createDefaultAdminCredentials();
   return {
     settings: createDefaultSettings(),
-    apps: [],
-    bookmarks: [],
+    apps: createDefaultApps(),
+    bookmarks: createDefaultBookmarks(),
     stats: { ...DEFAULT_STATS },
     admin,
   };
@@ -311,6 +392,14 @@ function createDefaultSettings() {
     footer: DEFAULT_SETTINGS.footer,
     weather: { city: DEFAULT_SETTINGS.weather.city },
   };
+}
+
+function createDefaultApps() {
+  return DEFAULT_APPS.map((app) => ({ ...app }));
+}
+
+function createDefaultBookmarks() {
+  return DEFAULT_BOOKMARKS.map((bookmark) => ({ ...bookmark }));
 }
 
 async function createDefaultAdminCredentials() {
