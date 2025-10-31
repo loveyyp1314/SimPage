@@ -4,6 +4,7 @@ const path = require("path");
 const http = require("node:http");
 const https = require("node:https");
 const { randomUUID, scryptSync, timingSafeEqual, randomBytes } = require("crypto");
+const { createNotFoundHandler } = require("./notFoundHandler");
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
@@ -219,12 +220,7 @@ app.use(
   })
 );
 
-app.use((req, res) => {
-  if (req.method === "GET") {
-    return res.sendFile(path.join(__dirname, "public", "index.html"));
-  }
-  res.status(404).json({ success: false, message: "未找到资源" });
-});
+app.use(createNotFoundHandler(path.join(__dirname, "public", "index.html")));
 
 app.use((error, _req, res, _next) => {
   console.error("服务器内部错误:", error);

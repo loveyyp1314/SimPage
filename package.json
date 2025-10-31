@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "node --test tests",
     "deploy:cloudflare": "wrangler deploy",
     "dev:cloudflare": "wrangler dev"
   },
@@ -13,5 +14,7 @@
   "dependencies": {
     "express": "^4.19.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "supertest": "^6.3.4"
+  }
 }
