@@ -15,9 +15,10 @@ id = "YOUR_SESSION_KV_NAMESPACE_ID_HERE"
 [env.production.vars]
 DEFAULT_WEATHER_CITY = "北京"
 
-# Workers Sites for static files
-[site]
-bucket = "./public"
+# Static asset binding
+[assets]
+binding = "ASSETS"
+directory = "./public"
 
 # Build configuration
 [build]
