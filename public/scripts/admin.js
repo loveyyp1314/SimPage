@@ -1155,22 +1155,6 @@ function showAuthOverlay() {
   }
   if (logoutButton) logoutButton.disabled = true;
 }
-      }, 0);
-    }
-    return;
-  }
-
-  if (loginForm) loginForm.style.display = "block";
-  if (githubLoginForm) githubLoginForm.style.display = "none";
-  if (loginPasswordInput) {
-    loginPasswordInput.disabled = false;
-    loginPasswordInput.value = "";
-    setTimeout(() => {
-      loginPasswordInput.focus();
-    }, 0);
-  }
-  if (logoutButton) logoutButton.disabled = true;
-}
 
 function hideAuthOverlay() {
   if (!authOverlay) return;
@@ -1467,14 +1451,6 @@ function bindEvents() {
   if (loginForm) {
     loginForm.addEventListener("submit", handleLoginSubmit);
   }
-
-  );
-    });
-  }
-
-  
-
-  
 
   if (logoutButton) {
     logoutButton.addEventListener("click", handleLogout);
