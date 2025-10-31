@@ -1240,6 +1240,8 @@ async function handleLoginSubmit(event) {
 
   try {
     await performLogin(password);
+    hideAuthOverlay();
+    updateLogoutButtonState();
     setPasswordMessage("");
     loginPasswordInput.value = "";
   } catch (error) {
