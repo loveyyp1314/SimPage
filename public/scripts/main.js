@@ -1,4 +1,5 @@
 import { renderMarkdown } from "./markdown.js";
+import "./theme-toggle.js";
 
 const siteNameElement = document.getElementById("site-name");
 const timeElement = document.getElementById("current-time");
