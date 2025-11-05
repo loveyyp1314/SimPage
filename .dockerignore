@@ -7,3 +7,5 @@ docker-compose.yaml
 .DS_Store
 .vscode
 .idea
+
+server.log
