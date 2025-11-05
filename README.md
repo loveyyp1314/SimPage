@@ -37,7 +37,14 @@
    - 前台导航页：[`http://localhost:3000/`](http://localhost:3000/)
    - 后台编辑页：[`http://localhost:3000/admin`](http://localhost:3000/admin.html)
 
-4. 更新
+4. 后台运行：
+   ```bash
+   npm install pm2 -g
+   pm2 start npm --name "SimPage" -- start
+   ```
+   更多请查看pm2命令...
+   
+6. 更新
    ```bash
    git pull
    ```
