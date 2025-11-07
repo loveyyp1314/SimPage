@@ -46,8 +46,8 @@ const runtimeConfig = {
   },
 };
 
-const WEATHER_API_TIMEOUT_MS = 5_000;
-const WEATHER_FETCH_HEADERS = Object.freeze({ 
+const WEATHER_API_TIMEOUT_MS = 10_000;
+const WEATHER_FETCH_HEADERS = Object.freeze({
   Accept: "application/json",
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 });
@@ -181,8 +181,24 @@ app.get("/api/weather", async (_req, res, next) => {
       return;
     }
 
-    const weather = await fetchOpenMeteoWeather(config.city);
-    res.json({ success: true, data: { ...weather, city: config.city } });
+    let cities = config.city;
+    if (!Array.isArray(cities)) {
+      cities = [cities];
+    }
+    const weatherData = [];
+
+    for (const city of cities) {
+      try {
+        const weather = await fetchOpenMeteoWeather(city);
+        weatherData.push({ ...weather, city });
+      } catch (error) {
+        console.error(`获取城市 ${city} 的天气信息失败：`, error);
+        // 如果获取单个城市的天气信息失败，可以选择跳过该城市，或者返回错误信息
+        // 这里选择跳过该城市
+      }
+    }
+
+    res.json({ success: true, data: weatherData });
   } catch (error) {
     if (error && error.expose) {
       const statusCode =
@@ -558,13 +574,15 @@ function normaliseWeatherSettingsFromFile(rawSettings) {
 
 function normaliseWeatherSettingsValue(input) {
   const fallback = createDefaultWeatherSettings();
-  const value = { ...fallback };
+  let value = { ...fallback };
 
   if (input && typeof input === "object") {
     if (typeof input.city === "string" && input.city.trim()) {
-      value.city = input.city.trim();
+      value.city = input.city.trim().split(" ").filter(city => city);
+    } else if (Array.isArray(input.city)) {
+      value.city = input.city.map(city => city.trim()).filter(city => city);
     } else if (typeof input.label === "string" && input.label.trim()) {
-      value.city = input.label.trim();
+      value.city = input.label.trim().split(" ").filter(city => city);
     }
   }
 
@@ -593,7 +611,7 @@ function normaliseWeatherSettingsInput(rawWeather) {
   }
 
   return {
-    city,
+    city: city.split(" ").filter(city => city),
   };
 }
 
@@ -699,7 +717,14 @@ async function handleDataUpdate(req, res, next) {
       label: "书签",
       type: "bookmarks",
     });
-    const normalisedSettings = normaliseSettingsInput(settings);
+    let normalisedSettings;
+    try {
+      normalisedSettings = normaliseSettingsInput(settings);
+    } catch (error) {
+      console.error("设置数据格式不正确", error);
+      error.expose = true;
+      throw error;
+    }
 
     const existing = await readFullData();
     const payload = {
@@ -809,7 +834,14 @@ function normaliseSettingsInput(input) {
     }
   }
 
-  const weather = normaliseWeatherSettingsInput(weatherSource);
+  let weather;
+  try {
+    weather = normaliseWeatherSettingsInput(weatherSource);
+  } catch (error) {
+    console.error("天气设置数据格式不正确", error);
+    error.expose = true;
+    throw error;
+  }
 
   return {
     siteName,
@@ -1170,11 +1202,14 @@ function requestWeatherPayloadWithNodeHttp(url, timeoutMs) {
 
 async function resolveWeatherRequestConfig() {
   const fullData = await readFullData();
-  const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
-  const city = weather.city || runtimeConfig.weather.defaultCity || DEFAULT_WEATHER_CONFIG.city;
-  return {
-    city,
-  };
+ const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
+ let cities = weather.city;
+ if (!Array.isArray(cities)) {
+   cities = [cities || runtimeConfig.weather.defaultCity || DEFAULT_WEATHER_CONFIG.city].filter(Boolean);
+ }
+ return {
+   city: cities,
+ };
 }
 
 function createDefaultData() {
