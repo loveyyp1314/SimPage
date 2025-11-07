@@ -818,6 +818,30 @@ async function loadYiyanQuote() {
 }
 
 function normaliseWeatherSetting(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map(item => {
+      if (typeof item === "string") {
+        const trimmed = item.trim();
+        return trimmed ? { city: trimmed } : null;
+      }
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      if (typeof item.city === "string" && item.city.trim()) {
+        return { city: item.city.trim() };
+      }
+      if (typeof item.label === "string" && item.label.trim()) {
+        return { city: item.label.trim() };
+      }
+      if (typeof item.name === "string" && item.name.trim()) {
+        return { city: item.name.trim() };
+      }
+      if (typeof item.id === "string" && item.id.trim()) {
+        return { city: item.id.trim() };
+      }
+      return null;
+    }).filter(item => item !== null);
+  }
   if (typeof raw === "string") {
     const trimmed = raw.trim();
     return trimmed ? { city: trimmed } : null;
@@ -895,8 +919,8 @@ function updateActiveWeather(weather) {
 }
 
 function setActiveWeather(rawWeather, { source = "settings" } = {}) {
-  const weather = normaliseWeatherSetting(rawWeather);
-  if (!weather) {
+  let weather = normaliseWeatherSetting(rawWeather);
+  if (!weather || (Array.isArray(weather) && weather.length === 0)) {
     if (source === "settings") {
       weatherSource = "default";
       updateActiveWeather(getDefaultWeather());
@@ -905,11 +929,19 @@ function setActiveWeather(rawWeather, { source = "settings" } = {}) {
   }
   if (source === "settings") {
     weatherSource = "settings";
+    if (Array.isArray(weather)) {
+      // Use the first city in the array
+      weather = weather[0];
+    }
     updateActiveWeather(weather);
     return;
   }
   if (weatherSource !== "settings") {
     weatherSource = "default";
+    if (Array.isArray(weather)) {
+      // Use the first city in the array
+      weather = weather[0];
+    }
     updateActiveWeather(weather);
   }
 }
@@ -951,22 +983,46 @@ async function updateWeather(weather, retryCount = 0) {
       return;
     }
 
-    const descriptionRaw = typeof data?.text === "string" ? data.text.trim() : "";
-    const description = descriptionRaw || "天气良好";
-    const temperatureValue = Number(data?.temperature);
-    const temperatureText = Number.isFinite(temperatureValue)
-      ? ` ${Math.round(temperatureValue)}°C`
-      : "";
-    const resolvedCity =
-      typeof data?.city === "string" && data.city.trim()
-        ? data.city.trim()
-        : city || getDefaultWeather().city;
+    if (Array.isArray(data)) {
+      // Multiple cities
+      const weatherInfo = data.map(item => {
+        const descriptionRaw = typeof item?.text === "string" ? item.text.trim() : "";
+        const description = descriptionRaw || "天气良好";
+        const temperatureValue = Number(item?.temperature);
+        const temperatureText = Number.isFinite(temperatureValue)
+          ? ` ${Math.round(temperatureValue)}°C`
+          : "";
+        const resolvedCity =
+          typeof item?.city === "string" && item.city.trim()
+            ? item.city.trim()
+            : city || getDefaultWeather().city;
 
-    const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
+        const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
+        return `${locationLabel}${description}${temperatureText}`.trim();
+      });
+      // weatherElement.textContent = weatherInfo.join(" | "); // Display all cities separated by " | "
+      // Call function to start scrolling
+      startWeatherRotation(weatherInfo);
+    } else if (data) {
+      // Single city
+      const descriptionRaw = typeof data?.text === "string" ? data.text.trim() : "";
+      const description = descriptionRaw || "天气良好";
+      const temperatureValue = Number(data?.temperature);
+      const temperatureText = Number.isFinite(temperatureValue)
+        ? ` ${Math.round(temperatureValue)}°C`
+        : "";
+      const resolvedCity =
+        typeof data?.city === "string" && data.city.trim()
+          ? data.city.trim()
+          : city || getDefaultWeather().city;
 
-    weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
+      const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
+
+      weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
+    }
   } catch (error) {
     console.error("天气数据获取失败", error);
+    weatherElement.textContent = "天气信息获取失败";
     if (requestToken !== weatherRequestToken) {
       return;
     }
@@ -988,6 +1044,14 @@ async function updateWeather(weather, retryCount = 0) {
       rawMessage && /[\u4e00-\u9fff]/.test(rawMessage) ? rawMessage : "天气信息暂不可用";
     weatherElement.textContent = `${locationLabel}${message}`.trim();
   }
+}
+
+function startWeatherRotation(weatherInfo) {
+  let index = 0;
+  setInterval(() => {
+    weatherElement.textContent = weatherInfo[index];
+    index = (index + 1) % weatherInfo.length;
+  }, 5000);
 }
 
 
