@@ -6,8 +6,7 @@
     "footer": "欢迎来到我的主页",
     "weather": {
       "city": [
-        "北京",
-        "上海"
+        "北京"
       ]
     }
   },
@@ -17,35 +16,42 @@
       "name": "Figma",
       "url": "https://www.figma.com/",
       "description": "协作式界面设计工具。",
-      "icon": "🎨"
+      "icon": "https://icon.ooo/www.figma.com"
     },
     {
       "id": "app-notion",
       "name": "Notion",
       "url": "https://www.notion.so/",
       "description": "多合一的笔记与知识管理平台。",
-      "icon": "🗂️"
+      "icon": "https://icon.ooo/www.notion.so"
     },
     {
       "id": "app-slack",
       "name": "Slack",
       "url": "https://slack.com/",
       "description": "团队即时沟通与协作中心。",
-      "icon": "💬"
+      "icon": "https://icon.ooo/slack.com"
     },
     {
       "id": "app-github",
       "name": "GitHub",
       "url": "https://github.com/",
       "description": "代码托管与协作平台。",
-      "icon": "🐙"
+      "icon": "https://icon.ooo/github.com"
     },
     {
       "id": "app-canva",
       "name": "Canva",
       "url": "https://www.canva.com/",
       "description": "简单易用的在线设计工具。",
-      "icon": "🖌️"
+      "icon": "https://icon.ooo/www.canva.com"
+    },
+    {
+      "id": "0cfcf4ba-2aeb-48f7-9d34-cc279ca0e949",
+      "name": "linuxdo",
+      "url": "https://linux.do",
+      "description": "新的理想型社区",
+      "icon": "https://icon.ooo/linux.do"
     }
   ],
   "bookmarks": [
@@ -54,7 +60,7 @@
       "name": "开源中国",
       "url": "https://www.oschina.net/",
       "description": "聚焦开源信息与技术社区。",
-      "icon": "🌐",
+      "icon": "https://icon.ooo/www.oschina.net",
       "category": "技术社区"
     },
     {
@@ -62,7 +68,7 @@
       "name": "少数派",
       "url": "https://sspai.com/",
       "description": "关注效率工具与生活方式的媒体。",
-      "icon": "📰",
+      "icon": "https://icon.ooo/sspai.com",
       "category": "效率与生活"
     },
     {
@@ -70,7 +76,7 @@
       "name": "知乎",
       "url": "https://www.zhihu.com/",
       "description": "问答与知识分享社区。",
-      "icon": "❓",
+      "icon": "https://icon.ooo/www.zhihu.com",
       "category": "知识学习"
     },
     {
@@ -78,7 +84,7 @@
       "name": "即刻",
       "url": "https://m.okjike.com/",
       "description": "兴趣社交与资讯聚合平台。",
-      "icon": "📮",
+      "icon": "https://icon.ooo/m.okjike.com",
       "category": "资讯聚合"
     },
     {
@@ -86,12 +92,12 @@
       "name": "稀土掘金",
       "url": "https://juejin.cn/",
       "description": "开发者技术社区与优质内容。",
-      "icon": "💡",
+      "icon": "https://icon.ooo/juejin.cn",
       "category": "技术社区"
     }
   ],
   "stats": {
-    "visitorCount": 65
+    "visitorCount": 74
   },
   "admin": {
     "passwordHash": "1a968cba0c9a05b2b235aa54a29bc91ef30a5a8a202dc290cf862070e14e259fad87c94f6f33ce1b2b36a75b233ef282b1298ca12fc96894a3abf38ff9e75b8a",

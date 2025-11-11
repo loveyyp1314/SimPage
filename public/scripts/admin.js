@@ -706,6 +706,12 @@ function hideBookmarkCategoryField() {
 }
 
 function openEditor(type, index) {
+  const fetchLogoButton = document.getElementById("fetch-logo-button");
+  if (fetchLogoButton) {
+    // 移除旧的监听器以防重复绑定
+    fetchLogoButton.removeEventListener("click", handleFetchLogo);
+    fetchLogoButton.addEventListener("click", handleFetchLogo);
+  }
   const isNew = typeof index !== "number";
   const reference = isNew ? createBlankItem(type) : state[type][index];
   if (!reference) return;
@@ -1264,6 +1270,54 @@ async function handlePasswordSubmit(event) {
   }
 }
 
+async function handleFetchLogo() {
+  if (!modalUrlInput || !modalIconInput) return;
+  const fetchLogoButton = document.getElementById("fetch-logo-button");
+  if (!fetchLogoButton) return;
+
+  const targetUrl = modalUrlInput.value.trim();
+  if (!targetUrl) {
+    setModalError("请先填写链接地址。");
+    modalUrlInput.focus();
+    return;
+  }
+
+  const originalButtonText = fetchLogoButton.textContent;
+  fetchLogoButton.disabled = true;
+  fetchLogoButton.textContent = "获取中...";
+  setModalError("");
+
+  try {
+    const response = await fetch(`/api/fetch-logo?targetUrl=${encodeURIComponent(targetUrl)}`, {
+      headers: buildAuthHeaders(),
+    });
+
+    if (response.status === 401) {
+      handleUnauthorized("登录已过期，请重新登录。");
+      return;
+    }
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "获取 Logo 失败");
+    }
+
+    if (result.logoUrl) {
+      modalIconInput.value = result.logoUrl;
+      markDirty(); // 标记为有修改
+    } else {
+      throw new Error("未能找到 Logo");
+    }
+  } catch (error) {
+    console.error("获取 Logo 失败:", error);
+    setModalError(error.message || "获取 Logo 失败，请稍后重试。");
+  } finally {
+    fetchLogoButton.disabled = false;
+    fetchLogoButton.textContent = originalButtonText;
+  }
+}
+
 function bindEvents() {
   addButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -1364,6 +1418,7 @@ function bindEvents() {
   if (logoutButton) {
     logoutButton.addEventListener("click", handleLogout);
   }
+
 }
 
 function scrollToTop() {
