@@ -47,13 +47,12 @@ npm install
     这将引导您在浏览器中登录 Cloudflare 账户并授权 Wrangler。
 
 2.  **创建 KV 命名空间**:
-    您需要创建三个 KV 命名空间来存储数据、会话和静态网站内容。
+    您需要创建两个 KV 命名空间来存储应用数据和用户会话。
     ```bash
     npx wrangler kv:namespace create "SIMPAGE_DATA"
     npx wrangler kv:namespace create "SESSIONS"
-    npx wrangler kv:namespace create "__STATIC_CONTENT"
     ```
-    执行上述命令后，Wrangler 会输出每个命名空间的 `id`。
+    执行上述命令后，Wrangler 会输出每个命名空间的 `id`。静态网站内容将通过下文的 `[site]` 配置自动处理，无需手动创建对应的 KV。
 
 3.  **更新 `wrangler.toml`**:
     将上一步获取到的 `id` 填入 `wrangler.toml` 文件对应的 `kv_namespaces` 部分。`preview_id` 可留空或填写与 `id` 相同的值。
@@ -63,9 +62,12 @@ npm install
 
     kv_namespaces = [
       { binding = "SIMPAGE_DATA", id = "your_simpage_data_id", preview_id = "your_simpage_data_id" },
-      { binding = "SESSIONS", id = "your_sessions_id", preview_id = "your_sessions_id" },
-      { binding = "__STATIC_CONTENT", id = "your_static_content_id", preview_id = "your_static_content_id" }
+      { binding = "SESSIONS", id = "your_sessions_id", preview_id = "your_sessions_id" }
     ]
+
+# ... 其他配置
+    [site]
+    bucket = "./public"
     ```
 
 ### 4. 本地开发
