@@ -221,6 +221,31 @@ app.get("/api/admin/data", requireAuth, async (_req, res, next) => {
   }
 });
 
+app.get("/api/fetch-logo", requireAuth, (req, res) => {
+  try {
+    const targetUrl = req.query.targetUrl;
+    if (!targetUrl || typeof targetUrl !== "string" || !targetUrl.trim()) {
+      return res.status(400).json({ success: false, message: "缺少有效的 targetUrl 参数" });
+    }
+
+    // 移除协议 (http, https)
+    let domain = targetUrl.trim().replace(/^(https?:\/\/)?/, "");
+    // 移除第一个斜杠后的所有内容 (路径, 查询参数, 哈希)
+    domain = domain.split("/")[0];
+
+    if (!domain) {
+      return res.status(400).json({ success: false, message: "无法从链接中提取域名。" });
+    }
+
+    const logoUrl = `https://icon.ooo/${domain}`;
+    res.json({ success: true, logoUrl: logoUrl });
+
+  } catch (error) {
+    console.error("生成 Logo 链接时发生内部错误:", error);
+    res.status(500).json({ success: false, message: "生成 Logo 链接失败" });
+  }
+});
+
 app.put("/api/admin/data", requireAuth, handleDataUpdate);
 app.put("/api/data", requireAuth, handleDataUpdate);
 app.post("/api/admin/password", requireAuth, handlePasswordUpdate);

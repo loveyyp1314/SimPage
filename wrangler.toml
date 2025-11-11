@@ -1,0 +1,20 @@
+# Wrangler configuration file
+name = "simpage"
+main = "worker.js"
+compatibility_date = "2024-03-26"
+
+# KV Namespace bindings
+# 1. SIMPAGE_DATA: Stores the main application data (settings, apps, bookmarks).
+# 2. SESSIONS: Stores user login session tokens.
+# 3. __STATIC_CONTENT: Stores all static assets (HTML, CSS, JS, images).
+#    This name is required by the @cloudflare/kv-asset-handler library.
+kv_namespaces = [
+  { binding = "SIMPAGE_DATA", id = "871b40c8323b4a5f815691f53dd98c4c", preview_id = "871b40c8323b4a5f815691f53dd98c4c" },
+  { binding = "SESSIONS", id = "dddcd16dd2e24270898488ee87280910", preview_id = "dddcd16dd2e24270898488ee87280910" },
+]
+
+# Site configuration for static assets
+# This tells Wrangler to upload the contents of the 'public' directory
+# to the __STATIC_CONTENT KV namespace.
+[site]
+bucket = "./public"

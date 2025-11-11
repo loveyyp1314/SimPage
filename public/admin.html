@@ -7,6 +7,20 @@
     <link rel="icon" id="site-favicon" href="/simpage-logo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="scripts/admin.js" defer></script>
+    <style>
+      .input-with-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .input-with-button input {
+        flex-grow: 1;
+        min-width: 0;
+      }
+      .input-with-button button {
+        flex-shrink: 0;
+      }
+    </style>
   </head>
   <body class="admin-body">
     <div class="ambient ambient-a" aria-hidden="true"></div>
@@ -195,7 +209,10 @@
             </div>
             <div class="field">
               <span>图标（支持 Emoji 或图片 URL）</span>
-              <input type="text" id="editor-icon" autocomplete="off" placeholder="例如：🎯 或 https://..." />
+              <div class="input-with-button">
+                <input type="text" id="editor-icon" autocomplete="off" placeholder="例如：🎯 或 https://..." />
+                <button type="button" id="fetch-logo-button" class="secondary-button" title="根据上方填写的链接自动获取图标">自动获取</button>
+              </div>
             </div>
             <div class="field" id="editor-category-field" hidden>
               <span>子分类</span>
