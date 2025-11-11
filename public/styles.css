@@ -1629,6 +1629,9 @@ body.dark-theme .theme-toggle:focus-visible {
 }
 
 .admin-actions {
+  position: sticky;
+  bottom: 1.5rem;
+  z-index: 1000;
   padding: clamp(1.4rem, 3vw, 1.8rem);
   display: flex;
   flex-wrap: wrap;

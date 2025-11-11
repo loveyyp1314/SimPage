@@ -49,6 +49,8 @@ const confirmPasswordInput = document.getElementById("confirm-password");
 const passwordMessage = document.getElementById("password-message");
 const backToTopButton = document.getElementById("back-to-top");
 const faviconLink = document.getElementById("site-favicon");
+const backToAppsButton = document.getElementById("back-to-apps-button");
+const backToBookmarksButton = document.getElementById("back-to-bookmarks-button");
 
 const typeLabels = {
   apps: "应用",
@@ -1419,6 +1421,29 @@ function bindEvents() {
     logoutButton.addEventListener("click", handleLogout);
   }
 
+  if (backToAppsButton) {
+    backToAppsButton.addEventListener("click", () => {
+      scrollToSection("apps-editor-title");
+    });
+  }
+
+  if (backToBookmarksButton) {
+    backToBookmarksButton.addEventListener("click", () => {
+      scrollToSection("bookmarks-editor-title");
+    });
+  }
+}
+
+function scrollToSection(targetId) {
+  const targetElement = document.getElementById(targetId);
+  if (!targetElement) return;
+
+  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (prefersReducedMotion) {
+    targetElement.scrollIntoView();
+    return;
+  }
+  targetElement.scrollIntoView({ behavior: "smooth" });
 }
 
 function scrollToTop() {
