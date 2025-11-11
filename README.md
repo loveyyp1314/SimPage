@@ -65,7 +65,7 @@ npm install
       { binding = "SESSIONS", id = "your_sessions_id", preview_id = "your_sessions_id" }
     ]
 
-# ... 其他配置
+    # ... 其他配置
     [site]
     bucket = "./public"
     ```
