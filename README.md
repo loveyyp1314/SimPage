@@ -89,6 +89,13 @@ npm run deploy
 
 部署成功后，Wrangler 会输出您的 Worker URL，通过该 URL 即可访问您的导航页。
 
+### 5. 更新
+
+```bash
+git pull
+npm run deploy
+```
+
 ## Docker Compose 部署
 
 项目附带精简的 Docker 部署方案，镜像基于 `node:20-alpine` 构建，仅安装生产依赖并启用健康检查，以在保证性能的前提下降低资源占用。
