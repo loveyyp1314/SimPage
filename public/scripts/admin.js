@@ -982,7 +982,13 @@ async function saveChanges() {
     const result = await response.json();
     const data = result && typeof result === "object" && "data" in result ? result.data : result;
 
-    updateStateFromResponse(data);
+    // The server response is used to update lists with server-generated IDs.
+    // Settings are not updated from the response, as the local state is the source of truth
+    // and the server may not return the full settings object on save.
+    state.apps = normaliseIncoming(data?.apps, "apps");
+    state.bookmarks = normaliseIncoming(data?.bookmarks, "bookmarks");
+    render();
+    resetDirty();
     setStatus("保存成功！", "success");
   } catch (error) {
     console.error("保存失败", error);
