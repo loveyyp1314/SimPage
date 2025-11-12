@@ -23,6 +23,58 @@
 - 仓库内提供了 `public/simpage-logo.svg` 作为轻量级的 SimPage 品牌 Logo，顶部展示的图标即来源于该文件。
 - 部署时可直接复用该 Logo，或在此基础上调整配色与排版以匹配自有品牌。
 
+## 传统 Node.js 部署
+
+如果您仍希望使用传统的 Node.js 服务器模式，可以继续使用 `server.js`。
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+### 2. 启动服务
+
+```bash
+# 启动 Node.js 服务器
+npm start
+```
+### 3. 后台运行[推荐使用 PM2]
+
+1. 全局安装 PM2
+
+```bash
+npm install pm2 -g
+```
+2. 使用 PM2 启动你的应用
+
+```bash
+pm2 start npm --name "SimPage" -- start
+```
+
+3. 常用 PM2 命令
+
+```bash
+pm2 list          # 查看所有正在运行的应用
+pm2 status        # 查看所有应用的状态 (和 list 类似)
+pm2 logs my-app   # 查看 "my-app" 的实时日志
+pm2 stop my-app     # 停止 "my-app"
+pm2 restart my-app  # 重启 "my-app"
+pm2 delete my-app   # 从 PM2 列表中删除 "my-app"
+```
+
+4. 设置开机自启
+
+```bash
+pm2 startup
+# (它会生成类似 sudo env PATH=... 的命令，复制并执行它)
+
+# 保存当前的应用列表，以便在重启后恢复
+pm2 save
+```
+
+> 请注意，`server.js` 和 Cloudflare Worker (`worker.js`) 使用不同的数据存储方式（文件 vs KV），数据不互通。
+
+
 ## Cloudflare Workers 部署
 
 本项目已完全适配 Cloudflare Workers，推荐使用此方式进行部署。
@@ -163,16 +215,5 @@ npm run deploy
 ├── package.json             # 项目依赖与脚本
 └── README.md
 ```
-
-## 传统 Node.js 部署 (旧版)
-
-如果您仍希望使用传统的 Node.js 服务器模式，可以继续使用 `server.js`。
-
-```bash
-# 启动 Node.js 服务器
-npm start
-```
-
-> 请注意，`server.js` 和 Cloudflare Worker (`worker.js`) 使用不同的数据存储方式（文件 vs KV），数据不互通。
 
 祝使用愉快！
