@@ -610,6 +610,8 @@ async function createDefaultAdminCredentials() {
 // =================================================================================
 
 const WEATHER_API_TIMEOUT_MS = 8000;
+const GEOLOCATION_MAX_RETRIES = 3;
+const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
 async function geocodeCity(cityName) {
   const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
@@ -618,15 +620,45 @@ async function geocodeCity(cityName) {
   url.searchParams.set("language", "zh");
   url.searchParams.set("format", "json");
 
-  const payload = await fetchWeatherPayload(url);
-  if (!payload?.results?.[0]) {
-    throw createWeatherError(`未找到城市"${cityName}"的地理位置信息。`, 404);
+  let lastError = null;
+  for (let attempt = 0; attempt < GEOLOCATION_MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = GEOLOCATION_RETRY_DELAY_BASE_MS * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      const payload = await fetchWeatherPayload(url);
+      if (!payload?.results?.[0]) {
+        throw createWeatherError(`未找到城市"${cityName}"的地理位置信息。`, 404);
+      }
+      const { latitude, longitude, name } = payload.results[0];
+      if (typeof latitude !== "number" || typeof longitude !== "number") {
+        throw createWeatherError("地理位置信息无效。");
+      }
+      return { latitude, longitude, name: name || cityName };
+
+    } catch (error) {
+      lastError = error;
+      // 如果是客户端错误（如 404 Not Found），则不应重试
+      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+        throw error;
+      }
+      if (attempt < GEOLOCATION_MAX_RETRIES - 1) {
+        console.warn(`地理编码请求失败（尝试 ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}），将重试...`, error?.message || error);
+        continue;
+      }
+    }
   }
-  const { latitude, longitude, name } = payload.results[0];
-  if (typeof latitude !== "number" || typeof longitude !== "number") {
-    throw createWeatherError("地理位置信息无效。");
+
+  // 在所有重试失败后，抛出最后的错误
+  if (lastError.name === "AbortError") {
+    throw createWeatherError("地理编码服务请求超时。", 504);
   }
-  return { latitude, longitude, name: name || cityName };
+  if (lastError.statusCode) {
+    throw lastError;
+  }
+  throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
 }
 
 async function fetchOpenMeteoWeather(cityName) {
