@@ -609,7 +609,7 @@ async function createDefaultAdminCredentials() {
 // Weather API Fetcher
 // =================================================================================
 
-const WEATHER_API_TIMEOUT_MS = 8000;
+const WEATHER_API_TIMEOUT_MS = 5000;
 const GEOLOCATION_MAX_RETRIES = 3;
 const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
