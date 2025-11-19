@@ -223,6 +223,7 @@ async function loadData() {
 
     applySiteSettings(data?.settings);
     updateVisitorCount(data?.visitorCount);
+    applyRuntimeConfig(data?.config);
 
     originalData.apps = prepareCollection(data?.apps, "apps");
     originalData.bookmarks = prepareCollection(data?.bookmarks, "bookmarks");
@@ -874,30 +875,18 @@ function getDefaultWeather() {
   return { city };
 }
 
-async function loadRuntimeConfig() {
-  if (typeof fetch !== "function") {
-    return runtimeConfig.weather.defaultCity;
+function applyRuntimeConfig(config) {
+  if (!config || typeof config !== "object") {
+    return;
   }
-  try {
-    const response = await fetch("/api/config", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("配置请求失败");
+  const city =
+    typeof config.weather?.defaultCity === "string" ? config.weather.defaultCity.trim() : "";
+  if (city) {
+    runtimeConfig.weather.defaultCity = city;
+    if (weatherSource !== "settings") {
+      setActiveWeather({ city }, { source: "default" });
     }
-    const payload = await response.json();
-    const city =
-      typeof payload?.weather?.defaultCity === "string"
-        ? payload.weather.defaultCity.trim()
-        : "";
-    if (city) {
-      runtimeConfig.weather.defaultCity = city;
-      if (weatherSource !== "settings") {
-        setActiveWeather({ city }, { source: "default" });
-      }
-    }
-  } catch (error) {
-    console.error("运行时配置加载失败", error);
   }
-  return runtimeConfig.weather.defaultCity;
 }
 
 function weathersAreEqual(a, b) {
@@ -983,7 +972,7 @@ async function updateWeather(weather, retryCount = 0) {
       return;
     }
 
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length > 0) {
       // Multiple cities
       const weatherInfo = data.map(item => {
         const descriptionRaw = typeof item?.text === "string" ? item.text.trim() : "";
@@ -1000,10 +989,8 @@ async function updateWeather(weather, retryCount = 0) {
         const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
         return `${locationLabel}${description}${temperatureText}`.trim();
       });
-      // weatherElement.textContent = weatherInfo.join(" | "); // Display all cities separated by " | "
-      // Call function to start scrolling
       startWeatherRotation(weatherInfo);
-    } else if (data) {
+    } else if (data && !Array.isArray(data)) {
       // Single city
       const descriptionRaw = typeof data?.text === "string" ? data.text.trim() : "";
       const description = descriptionRaw || "天气良好";
@@ -1017,11 +1004,17 @@ async function updateWeather(weather, retryCount = 0) {
           : city || getDefaultWeather().city;
 
       const locationLabel = resolvedCity ? `${resolvedCity} · ` : "";
-
       weatherElement.textContent = `${locationLabel}${description}${temperatureText}`.trim();
+    } else {
+      // This case handles empty array or other falsy data values
+      throw new Error("未能获取有效天气数据");
     }
   } catch (error) {
     console.error("天气数据获取失败", error);
+    if (weatherRotationInterval) {
+      clearInterval(weatherRotationInterval);
+      weatherRotationInterval = null;
+    }
     weatherElement.textContent = "天气信息获取失败";
     if (requestToken !== weatherRequestToken) {
       return;
@@ -1046,12 +1039,26 @@ async function updateWeather(weather, retryCount = 0) {
   }
 }
 
+let weatherRotationInterval = null;
 function startWeatherRotation(weatherInfo) {
+  if (weatherRotationInterval) {
+    clearInterval(weatherRotationInterval);
+  }
+
+  if (!weatherInfo || weatherInfo.length === 0) {
+    return;
+  }
+
   let index = 0;
-  setInterval(() => {
-    weatherElement.textContent = weatherInfo[index];
-    index = (index + 1) % weatherInfo.length;
-  }, 5000);
+  weatherElement.textContent = weatherInfo[index]; // Set initial text immediately
+
+  if (weatherInfo.length > 1) {
+    index = 1;
+    weatherRotationInterval = setInterval(() => {
+      weatherElement.textContent = weatherInfo[index];
+      index = (index + 1) % weatherInfo.length;
+    }, 5000);
+  }
 }
 
 
@@ -1086,7 +1093,6 @@ async function initialise() {
   updateClock();
   setInterval(updateClock, 1_000);
 
-  const runtimeConfigPromise = loadRuntimeConfig();
   const dataPromise = loadData();
 
   loadYiyanQuote();
@@ -1165,7 +1171,6 @@ async function initialise() {
     refreshWeatherDisplay();
   }
 
-  await runtimeConfigPromise.catch(() => {});
 }
 
 if (document.readyState === "loading") {

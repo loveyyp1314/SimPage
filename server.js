@@ -9,6 +9,14 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "navigation.json");
 
+const visitorCountCache = {
+  increment: 0,
+  isWriting: false,
+  lastWriteTime: 0,
+  writeDelayMs: 30 * 1000, // 30 seconds
+  writeThreshold: 50, // or every 50 visits
+};
+
 const BASE_DEFAULT_SETTINGS = Object.freeze({
   siteName: "SimPage",
   siteLogo: "",
@@ -61,6 +69,8 @@ const GEOLOCATION_MAX_RETRIES = 3;
 const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
 const geocodeCache = new Map();
+const weatherCache = new Map();
+const WEATHER_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 async function readDataFileMeta() {
   try {
@@ -158,19 +168,11 @@ app.post("/api/login", async (req, res, next) => {
 
 app.get("/api/data", async (_req, res, next) => {
   try {
-    const data = await incrementVisitorCountAndReadData();
+    const data = await handleVisitorAndReadData();
     res.json(data);
   } catch (error) {
     next(error);
   }
-});
-
-app.get("/api/config", (_req, res) => {
-  res.json({
-    weather: {
-      defaultCity: runtimeConfig.weather.defaultCity,
-    },
-  });
 });
 
 app.get("/api/weather", async (_req, res, next) => {
@@ -185,20 +187,19 @@ app.get("/api/weather", async (_req, res, next) => {
     if (!Array.isArray(cities)) {
       cities = [cities];
     }
-    const weatherData = [];
+    const weatherPromises = cities.map(city =>
+      fetchOpenMeteoWeather(city)
+        .then(weather => ({ ...weather, city, success: true }))
+        .catch(error => {
+          console.error(`获取城市 ${city} 的天气信息失败：`, error);
+          return { city, success: false, message: error.message };
+        })
+    );
 
-    for (const city of cities) {
-      try {
-        const weather = await fetchOpenMeteoWeather(city);
-        weatherData.push({ ...weather, city });
-      } catch (error) {
-        console.error(`获取城市 ${city} 的天气信息失败：`, error);
-        // 如果获取单个城市的天气信息失败，可以选择跳过该城市，或者返回错误信息
-        // 这里选择跳过该城市
-      }
-    }
+    const results = await Promise.all(weatherPromises);
+    const successfulWeatherData = results.filter(r => r.success);
 
-    res.json({ success: true, data: weatherData });
+    res.json({ success: true, data: successfulWeatherData });
   } catch (error) {
     if (error && error.expose) {
       const statusCode =
@@ -348,29 +349,65 @@ async function readAdminData() {
   const fullData = await readFullData();
   const data = sanitiseData(fullData);
   const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
+  const cityString = Array.isArray(weather.city) ? weather.city.join(" ") : weather.city;
   data.settings.weather = {
-    city: weather.city,
+    city: cityString,
   };
   return data;
 }
 
-async function incrementVisitorCountAndReadData() {
+async function handleVisitorAndReadData() {
+  visitorCountCache.increment += 1;
   const fullData = await readFullData();
-  const currentCount =
-    typeof fullData.stats?.visitorCount === "number" && Number.isFinite(fullData.stats.visitorCount)
-      ? Math.max(0, Math.floor(fullData.stats.visitorCount))
-      : DEFAULT_STATS.visitorCount;
-  const nextVisitorCount = currentCount + 1;
-  const updatedData = {
-    settings: fullData.settings,
-    apps: fullData.apps,
-    bookmarks: fullData.bookmarks,
-    stats: { visitorCount: nextVisitorCount },
-    admin: fullData.admin,
-  };
+  const data = sanitiseData(fullData);
 
-  await writeFullData(updatedData);
-  return sanitiseData(updatedData);
+  data.visitorCount = (data.visitorCount || 0) + visitorCountCache.increment;
+
+  persistVisitorCountIncrement().catch((err) => {
+    console.error("背景访客计数持久化失败:", err);
+  });
+
+  return data;
+}
+
+async function persistVisitorCountIncrement() {
+  const now = Date.now();
+  const shouldWrite =
+    visitorCountCache.increment > 0 &&
+    !visitorCountCache.isWriting &&
+    (now - visitorCountCache.lastWriteTime > visitorCountCache.writeDelayMs ||
+      visitorCountCache.increment >= visitorCountCache.writeThreshold);
+
+  if (!shouldWrite) {
+    return;
+  }
+
+  visitorCountCache.isWriting = true;
+  try {
+    const incrementToPersist = visitorCountCache.increment;
+    visitorCountCache.increment = 0;
+    visitorCountCache.lastWriteTime = now;
+
+    const fullData = await readFullData();
+
+    const currentCount =
+      typeof fullData.stats?.visitorCount === "number" && Number.isFinite(fullData.stats.visitorCount)
+        ? Math.max(0, Math.floor(fullData.stats.visitorCount))
+        : DEFAULT_STATS.visitorCount;
+
+    const nextVisitorCount = currentCount + incrementToPersist;
+
+    const updatedData = {
+      ...fullData,
+      stats: { ...fullData.stats, visitorCount: nextVisitorCount },
+    };
+
+    await writeFullData(updatedData);
+  } catch (error) {
+    console.error("持久化访客计数失败:", error);
+  } finally {
+    visitorCountCache.isWriting = false;
+  }
 }
 
 async function readFullData() {
@@ -730,6 +767,11 @@ function sanitiseData(fullData) {
       typeof fullData.stats?.visitorCount === "number"
         ? fullData.stats.visitorCount
         : DEFAULT_STATS.visitorCount,
+    config: {
+      weather: {
+        defaultCity: runtimeConfig.weather.defaultCity,
+      },
+    },
   };
 }
 
@@ -1066,10 +1108,20 @@ async function geocodeCity(cityName) {
   throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
 }
 
+function getWeatherCacheKey(city) {
+  return city.toLowerCase();
+}
+
 async function fetchOpenMeteoWeather(cityName) {
   const city = typeof cityName === "string" ? cityName.trim() : "";
   if (!city) {
     throw createWeatherError("城市名称无效。", 400);
+  }
+
+  const cacheKey = getWeatherCacheKey(city);
+  const cached = weatherCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_TTL_MS) {
+    return cached.data;
   }
 
   const location = await geocodeCity(city);
@@ -1097,13 +1149,20 @@ async function fetchOpenMeteoWeather(cityName) {
 
     const weatherDescription = getWeatherDescription(weatherCode);
 
-    return {
+    const weatherData = {
       text: weatherDescription,
       temperature: Number.isFinite(temperatureValue) ? temperatureValue : null,
       windspeed: Number.isFinite(windspeedValue) ? windspeedValue : null,
       weathercode: Number.isFinite(weatherCode) ? weatherCode : null,
       time: current.time || null,
     };
+
+    weatherCache.set(cacheKey, {
+      data: weatherData,
+      timestamp: Date.now(),
+    });
+
+    return weatherData;
   } catch (error) {
     if (error && error.name === "AbortError") {
       throw createWeatherError("天气服务请求超时，请稍后重试。", 504);
