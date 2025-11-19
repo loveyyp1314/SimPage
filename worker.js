@@ -34,7 +34,6 @@ const AUTH_HEADER_PREFIX = "Bearer ";
 
 router.post("/api/login", handleLogin);
 router.get("/api/data", handleGetData);
-router.get("/api/config", handleGetConfig);
 router.get("/api/weather", handleGetWeather);
 router.get("/api/admin/data", requireAuth, handleGetAdminData);
 router.put("/api/admin/data", requireAuth, handleDataUpdate);
@@ -118,8 +117,10 @@ async function serveStatic(request, env, ctx, forcePath) {
     return asset;
   } catch (e) {
     // For SPA-like behavior, only fall back to index.html for navigation requests
-    const acceptHeader = request.headers.get("accept");
-    if (acceptHeader && acceptHeader.includes("text/html")) {
+    const isHTMLRequest = (request.headers.get("accept") || "").includes("text/html");
+    const isRoot = new URL(request.url).pathname === "/";
+
+    if (isHTMLRequest || isRoot) {
       try {
         const notFoundRequest = new Request(new URL("/index.html", request.url), request);
         return await getAssetFromKV(
@@ -133,10 +134,10 @@ async function serveStatic(request, env, ctx, forcePath) {
           }
         );
       } catch (e2) {
-        // This should not happen if index.html exists
         return new Response("Not Found", { status: 404 });
       }
     }
+    
     // For other asset types (JS, CSS, etc.), return a 404
     return new Response("Not Found", { status: 404 });
   }
@@ -187,16 +188,8 @@ async function handleGetData(request, env) {
   }
 }
 
-function handleGetConfig(request, env) {
-  // In worker environment, this can be simplified or fetched from ENV vars if needed
-  return jsonResponse({
-    weather: {
-      defaultCity: DEFAULT_WEATHER_CONFIG.city,
-    },
-  });
-}
 
-async function handleGetWeather(request, env) {
+async function handleGetWeather(request, env, ctx) {
   try {
     const fullData = await readFullData(env);
     const weatherSettings = normaliseWeatherSettingsValue(fullData.settings?.weather);
@@ -205,17 +198,25 @@ async function handleGetWeather(request, env) {
       cities = [DEFAULT_WEATHER_CONFIG.city];
     }
 
-    const weatherData = [];
-    for (const city of cities) {
-      try {
-        const weather = await fetchOpenMeteoWeather(city);
-        weatherData.push({ ...weather, city });
-      } catch (error) {
-        console.error(`获取城市 ${city} 的天气信息失败：`, error);
-      }
+    const weatherPromises = cities.map(city =>
+      fetchOpenMeteoWeather(city, env, ctx)
+        .then(weather => ({ ...weather, city, success: true }))
+        .catch(error => {
+          console.error(`获取城市 ${city} 的天气信息失败：`, error);
+          return { city, success: false, message: error.message };
+        })
+    );
+
+    const results = await Promise.all(weatherPromises);
+    const successfulWeatherData = results.filter(r => r.success);
+
+    if (successfulWeatherData.length === 0 && results.length > 0) {
+      const firstError = results.find(r => !r.success);
+      const errorMessage = firstError?.message || "无法获取任何城市的天气信息。";
+      return jsonResponse({ success: false, message: errorMessage }, 502);
     }
 
-    return jsonResponse({ success: true, data: weatherData });
+    return jsonResponse({ success: true, data: successfulWeatherData });
   } catch (error) {
     const statusCode = error.statusCode || 502;
     return jsonResponse({ success: false, message: error.message }, statusCode);
@@ -226,7 +227,8 @@ async function handleGetAdminData(request, env) {
   const fullData = await readFullData(env);
   const data = sanitiseData(fullData);
   const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
-  data.settings.weather = { city: weather.city };
+  const cityString = Array.isArray(weather.city) ? weather.city.join(" ") : weather.city;
+  data.settings.weather = { city: cityString };
   return jsonResponse({ success: true, data });
 }
 
@@ -364,19 +366,26 @@ async function writeFullData(env, fullData) {
 }
 
 async function incrementVisitorCountAndReadData(env) {
-  // This is not atomic, but sufficient for this use case.
-  // For true atomicity, a Durable Object would be needed.
   const fullData = await readFullData(env);
+  const sanitised = sanitiseData(fullData);
+
   const currentCount = fullData.stats?.visitorCount || 0;
   const nextVisitorCount = currentCount + 1;
+  sanitised.visitorCount = nextVisitorCount;
 
   const updatedData = {
     ...fullData,
     stats: { ...fullData.stats, visitorCount: nextVisitorCount },
   };
 
-  await writeFullData(env, updatedData);
-  return sanitiseData(updatedData);
+  // Fire-and-forget the write operation
+  // This makes the user-facing request faster as it doesn't wait for the KV write.
+  const promise = writeFullData(env, updatedData);
+  if (globalThis.ctx && typeof globalThis.ctx.waitUntil === "function") {
+    globalThis.ctx.waitUntil(promise);
+  }
+
+  return sanitised;
 }
 
 // =================================================================================
@@ -399,6 +408,11 @@ function sanitiseData(fullData) {
     apps: fullData.apps?.map((item) => ({ ...item })) || [],
     bookmarks: fullData.bookmarks?.map((item) => ({ ...item })) || [],
     visitorCount: fullData.stats?.visitorCount || DEFAULT_STATS.visitorCount,
+    config: {
+      weather: {
+        defaultCity: DEFAULT_WEATHER_CONFIG.city,
+      },
+    },
   };
 }
 
@@ -613,7 +627,64 @@ const WEATHER_API_TIMEOUT_MS = 5000;
 const GEOLOCATION_MAX_RETRIES = 3;
 const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
-async function geocodeCity(cityName) {
+async function fetchAndCache(url, ctx) {
+  const cache = caches.default;
+  let response = await cache.match(url);
+
+  if (!response) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), WEATHER_API_TIMEOUT_MS);
+
+    try {
+      response = await fetch(url.toString(), {
+        signal: controller.signal,
+        headers: {
+          "Accept": "application/json",
+          "Accept-Encoding": "identity",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+
+      // Clone the response to be able to read the body for caching and for returning
+      const cacheableResponse = response.clone();
+
+      if (response.ok) {
+        // If the request was successful, cache it for 15 minutes.
+        const newHeaders = new Headers(cacheableResponse.headers);
+        newHeaders.set("Cache-Control", "public, max-age=900");
+
+        const cacheResponseForStorage = new Response(cacheableResponse.body, {
+          status: cacheableResponse.status,
+          statusText: cacheableResponse.statusText,
+          headers: newHeaders,
+        });
+        ctx.waitUntil(cache.put(url, cacheResponseForStorage));
+      } else {
+        // If the request failed (e.g., 429 rate limit), cache the failure for a short period.
+        // This acts as a circuit breaker to prevent hammering the API.
+        const newHeaders = new Headers(cacheableResponse.headers);
+        newHeaders.set("Cache-Control", "public, max-age=60"); // Cache failure for 60 seconds
+
+        const failedResponseForStorage = new Response(cacheableResponse.body, {
+          status: cacheableResponse.status,
+          statusText: cacheableResponse.statusText,
+          headers: newHeaders,
+        });
+        ctx.waitUntil(cache.put(url, failedResponseForStorage));
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  if (!response.ok) {
+    throw createWeatherError(`API请求失败: ${response.status}`, response.status);
+  }
+
+  return response.json();
+}
+
+async function geocodeCity(cityName, env, ctx) {
   const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
   url.searchParams.set("name", cityName);
   url.searchParams.set("count", "1");
@@ -625,10 +696,11 @@ async function geocodeCity(cityName) {
     try {
       if (attempt > 0) {
         const delay = GEOLOCATION_RETRY_DELAY_BASE_MS * Math.pow(2, attempt - 1);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
 
-      const payload = await fetchWeatherPayload(url);
+      const payload = await fetchAndCache(url, ctx);
+
       if (!payload?.results?.[0]) {
         throw createWeatherError(`未找到城市"${cityName}"的地理位置信息。`, 404);
       }
@@ -636,40 +708,33 @@ async function geocodeCity(cityName) {
       if (typeof latitude !== "number" || typeof longitude !== "number") {
         throw createWeatherError("地理位置信息无效。");
       }
-      return { latitude, longitude, name: name || cityName };
-
+      return { latitude, longitude, name: name || cityName }; // Success
     } catch (error) {
       lastError = error;
-      // 如果是客户端错误（如 404 Not Found），则不应重试
-      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+      // Don't retry on client errors (e.g., 404 Not Found)
+      if (error?.statusCode >= 400 && error.statusCode < 500) {
         throw error;
       }
-      if (attempt < GEOLOCATION_MAX_RETRIES - 1) {
-        console.warn(`地理编码请求失败（尝试 ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}），将重试...`, error?.message || error);
-        continue;
-      }
+      console.warn(
+        `geocodeCity failed (attempt ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}), retrying...`,
+        error.message
+      );
     }
   }
 
-  // 在所有重试失败后，抛出最后的错误
-  if (lastError.name === "AbortError") {
-    throw createWeatherError("地理编码服务请求超时。", 504);
-  }
-  if (lastError.statusCode) {
-    throw lastError;
-  }
-  throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
+  // If the loop completes, all retries have failed.
+  throw lastError || createWeatherError("地理编码服务获取失败，且所有重试均告失败。", 502);
 }
 
-async function fetchOpenMeteoWeather(cityName) {
-  const location = await geocodeCity(cityName);
+async function fetchOpenMeteoWeather(cityName, env, ctx) {
+  const location = await geocodeCity(cityName, env, ctx);
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.searchParams.set("latitude", String(location.latitude));
   url.searchParams.set("longitude", String(location.longitude));
   url.searchParams.set("current_weather", "true");
   url.searchParams.set("timezone", "auto");
 
-  const payload = await fetchWeatherPayload(url);
+  const payload = await fetchAndCache(url, ctx);
   const current = payload?.current_weather;
   if (!current || typeof current !== "object") {
     throw createWeatherError("天气数据格式异常。");
@@ -682,28 +747,6 @@ async function fetchOpenMeteoWeather(cityName) {
     weathercode: Number(current.weathercode),
     time: current.time || null,
   };
-}
-
-async function fetchWeatherPayload(url) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WEATHER_API_TIMEOUT_MS);
-  try {
-    const response = await fetch(url.toString(), {
-      signal: controller.signal,
-      headers: { Accept: "application/json", "User-Agent": "SimPage-Worker/1.0" },
-    });
-    if (!response.ok) {
-      throw createWeatherError(`天气服务API请求失败: ${response.status}`, response.status);
-    }
-    return await response.json();
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw createWeatherError("天气服务请求超时。", 504);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 function createWeatherError(message, statusCode = 502) {
