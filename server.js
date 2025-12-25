@@ -3,6 +3,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const http = require("node:http");
 const https = require("node:https");
+const zlib = require("node:zlib");
 const { randomUUID, scryptSync, timingSafeEqual, randomBytes } = require("crypto");
 
 const PORT = process.env.PORT || 3000;
@@ -64,13 +65,109 @@ const WEATHER_HTTP_HEADERS = Object.freeze({
   "Accept-Encoding": "identity",
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 });
-const GEOLOCATION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const GEOLOCATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const GEOLOCATION_MAX_RETRIES = 3;
 const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
+const QWEATHER_GEO_ENDPOINT = "https://jg359c629y.re.qweatherapi.com/geo/v2/city/lookup";
+const QWEATHER_NOW_ENDPOINT = "https://jg359c629y.re.qweatherapi.com/v7/weather/now";
+
 const geocodeCache = new Map();
+const QWEATHER_CITY_ALIASES = Object.freeze({
+  "北京": "Beijing",
+  "上海": "Shanghai",
+  "广州": "Guangzhou",
+  "深圳": "Shenzhen",
+  "杭州": "Hangzhou",
+  "南京": "Nanjing",
+  "天津": "Tianjin",
+  "武汉": "Wuhan",
+  "成都": "Chengdu",
+  "重庆": "Chongqing",
+  "西安": "Xian",
+  "苏州": "Suzhou",
+  "青岛": "Qingdao",
+  "厦门": "Xiamen",
+  "大连": "Dalian",
+  "宁波": "Ningbo",
+  "沈阳": "Shenyang",
+  "哈尔滨": "Harbin",
+  "长春": "Changchun",
+  "长沙": "Changsha",
+  "郑州": "Zhengzhou",
+  "济南": "Jinan",
+  "福州": "Fuzhou",
+  "合肥": "Hefei",
+  "昆明": "Kunming",
+  "南宁": "Nanning",
+  "贵阳": "Guiyang",
+  "兰州": "Lanzhou",
+  "太原": "Taiyuan",
+  "石家庄": "Shijiazhuang",
+  "乌鲁木齐": "Urumqi",
+  "拉萨": "Lhasa",
+  "香港": "Hong Kong",
+  "澳门": "Macau",
+  "台北": "Taipei",
+});
+
+const QWEATHER_CITY_ALIAS_CODES = Object.freeze({
+  "5317-4eac": "Beijing",
+  "4e0a-6d77": "Shanghai",
+  "5e7f-5dde": "Guangzhou",
+  "6df1-5733": "Shenzhen",
+  "676d-5dde": "Hangzhou",
+  "5357-4eac": "Nanjing",
+  "5929-6d25": "Tianjin",
+  "6b66-6c49": "Wuhan",
+  "6210-90fd": "Chengdu",
+  "91cd-5e86": "Chongqing",
+  "897f-5b89": "Xian",
+  "82cf-5dde": "Suzhou",
+  "9752-5c9b": "Qingdao",
+  "53a6-95e8": "Xiamen",
+  "5927-8fde": "Dalian",
+  "5b81-6ce2": "Ningbo",
+  "6c88-9633": "Shenyang",
+  "54c8-5c14-6ee8": "Harbin",
+  "957f-6625": "Changchun",
+  "957f-6c99": "Changsha",
+  "90d1-5dde": "Zhengzhou",
+  "6d4e-5357": "Jinan",
+  "798f-5dde": "Fuzhou",
+  "5408-80a5": "Hefei",
+  "6606-660e": "Kunming",
+  "5357-5b81": "Nanning",
+  "8d35-9633": "Guiyang",
+  "5170-5dde": "Lanzhou",
+  "592a-539f": "Taiyuan",
+  "77f3-5bb6-5e84": "Shijiazhuang",
+  "4e4c-9c81-6728-9f50": "Urumqi",
+  "62c9-8428": "Lhasa",
+  "9999-6e2f": "Hong Kong",
+  "6fb3-95e8": "Macau",
+  "53f0-5317": "Taipei",
+});
+
+function normaliseQWeatherCityName(city) {
+  if (!city) {
+    return "";
+  }
+  const cleaned = city.replace(/\s+/g, "").replace(/(市|省|自治区|特别行政区)$/, "");
+  const codeKey = Array.from(cleaned)
+    .map((char) => char.codePointAt(0).toString(16))
+    .join("-");
+  if (QWEATHER_CITY_ALIAS_CODES[codeKey]) {
+    return QWEATHER_CITY_ALIAS_CODES[codeKey];
+  }
+  if (QWEATHER_CITY_ALIASES[cleaned]) {
+    return QWEATHER_CITY_ALIASES[cleaned];
+  }
+  const containsNonAscii = /[^\x00-\x7F]/.test(cleaned);
+  return containsNonAscii ? "" : cleaned;
+}
 const weatherCache = new Map();
-const WEATHER_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function readDataFileMeta() {
   try {
@@ -140,10 +237,18 @@ app.post("/api/login", async (req, res, next) => {
     }
 
     const fullData = await readFullData();
-    const admin = fullData.admin;
+    let admin = fullData.admin;
     if (!admin || !admin.passwordSalt || !admin.passwordHash) {
-      res.status(500).json({ success: false, message: "登录功能暂不可用，请稍后再试。" });
-      return;
+      const credentials = createDefaultAdminCredentials();
+      const updatedData = {
+        settings: fullData.settings,
+        apps: fullData.apps,
+        bookmarks: fullData.bookmarks,
+        stats: fullData.stats,
+        admin: credentials,
+      };
+      await writeFullData(updatedData, { mutated: true, passwordReset: true });
+      admin = credentials;
     }
 
     const hashed = hashPassword(password, admin.passwordSalt);
@@ -178,6 +283,29 @@ app.get("/api/data", async (_req, res, next) => {
 app.get("/api/weather", async (_req, res, next) => {
   try {
     const config = await resolveWeatherRequestConfig();
+    const apiKey = typeof config.apiKey === "string" ? config.apiKey.trim() : "";
+    const locations = Array.isArray(config.locations) ? config.locations : [];
+    if (locations.length > 0) {
+      const weatherPromises = locations.map((location) =>
+        fetchQWeatherNowByLocation(location, apiKey)
+          .then((weather) => ({
+            ...weather,
+            city: location.name || location.city || "",
+            success: true,
+          }))
+          .catch((error) => {
+            const label = location.name || location.city || "Unknown";
+            console.error(`Weather fetch failed for ${label}:`, error);
+            return { city: label, success: false, message: error.message };
+          })
+      );
+
+      const results = await Promise.all(weatherPromises);
+      const successfulWeatherData = results.filter((result) => result.success);
+
+      res.json({ success: true, data: successfulWeatherData });
+      return;
+    }
     if (!config.city) {
       res.status(503).json({ success: false, message: "尚未配置天气城市，请联系管理员。" });
       return;
@@ -187,11 +315,12 @@ app.get("/api/weather", async (_req, res, next) => {
     if (!Array.isArray(cities)) {
       cities = [cities];
     }
-    const weatherPromises = cities.map(city =>
-      fetchOpenMeteoWeather(city)
+    const queryList = alignWeatherQueries(cities, config.query);
+    const weatherPromises = cities.map((city, index) =>
+      fetchQWeatherNowByCity(city, apiKey, queryList[index])
         .then(weather => ({ ...weather, city, success: true }))
         .catch(error => {
-          console.error(`获取城市 ${city} 的天气信息失败：`, error);
+          console.error(`???? ${city} ????????`, error);
           return { city, success: false, message: error.message };
         })
     );
@@ -250,6 +379,7 @@ app.get("/api/fetch-logo", requireAuth, (req, res) => {
 app.put("/api/admin/data", requireAuth, handleDataUpdate);
 app.put("/api/data", requireAuth, handleDataUpdate);
 app.post("/api/admin/password", requireAuth, handlePasswordUpdate);
+app.post("/api/admin/weather-test", requireAuth, handleWeatherTest);
 
 app.get("/admin", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
@@ -352,6 +482,8 @@ async function readAdminData() {
   const cityString = Array.isArray(weather.city) ? weather.city.join(" ") : weather.city;
   data.settings.weather = {
     city: cityString,
+    apiKey: weather.apiKey || "",
+    query: weather.query || [],
   };
   return data;
 }
@@ -552,6 +684,9 @@ function normaliseFooterValue(value) {
 function createDefaultWeatherSettings() {
   return {
     city: runtimeConfig.weather?.defaultCity || DEFAULT_WEATHER_CONFIG.city,
+    locations: [],
+    apiKey: "",
+    query: [],
   };
 }
 
@@ -615,13 +750,48 @@ function normaliseWeatherSettingsFromFile(rawSettings) {
   }
 
   if (source) {
-    const cityInfo = extractWeatherCity(source);
-    if (cityInfo.value) {
-      value.city = cityInfo.value;
+    if (Array.isArray(source.city)) {
+      const cleaned = source.city.map((city) => String(city).trim()).filter(Boolean);
+      if (cleaned.length > 0) {
+        value.city = cleaned;
+      } else {
+        mutated = true;
+      }
     } else {
+      const cityInfo = extractWeatherCity(source);
+      if (cityInfo.value) {
+        value.city = cityInfo.value;
+      } else {
+        mutated = true;
+      }
+      mutated = mutated || cityInfo.mutated;
+    }
+
+    const locations = normaliseWeatherLocationsValue(source);
+    if (locations.length > 0) {
+      value.locations = locations;
+    } else if ("locations" in source) {
+      const sourceLocations = source.locations;
+      if (!Array.isArray(sourceLocations)) {
+        mutated = true;
+      } else if (sourceLocations.length > 0) {
+        mutated = true;
+      }
+    }
+
+    const apiKey = getWeatherApiKey(source);
+    if (apiKey) {
+      value.apiKey = apiKey;
+    } else if ("apiKey" in source) {
       mutated = true;
     }
-    mutated = mutated || cityInfo.mutated;
+
+    const query = normaliseWeatherQueryInput(source);
+    if (query.length > 0) {
+      value.query = query;
+    } else if ("query" in source) {
+      mutated = true;
+    }
   } else {
     mutated = true;
   }
@@ -637,6 +807,9 @@ function normaliseWeatherSettingsFromFile(rawSettings) {
 function normaliseWeatherSettingsValue(input) {
   const fallback = createDefaultWeatherSettings();
   let value = { ...fallback };
+  const locations = normaliseWeatherLocationsValue(input);
+  const apiKey = resolveApiKeyFromWeather(input);
+  const query = normaliseWeatherQueryInput(input);
 
   if (input && typeof input === "object") {
     if (typeof input.city === "string" && input.city.trim()) {
@@ -648,11 +821,69 @@ function normaliseWeatherSettingsValue(input) {
     }
   }
 
-  if (!value.city) {
+  if (locations.length > 0) {
+    value.locations = locations;
+  }
+
+  if (apiKey) {
+    value.apiKey = apiKey;
+  }
+  if (query.length > 0) {
+    value.query = query;
+  }
+
+  if (!value.city || value.city.length === 0) {
+    if (locations.length > 0) {
+      value.city = locations
+        .map((location) => location.name || location.city)
+        .filter((name) => typeof name === "string" && name.trim())
+        .map((name) => name.trim());
+    }
+  }
+
+  if (!value.city || value.city.length === 0) {
     value.city = fallback.city;
   }
 
   return value;
+}
+
+function getWeatherApiKey(rawWeather) {
+  return typeof rawWeather?.apiKey === "string" ? rawWeather.apiKey.trim() : "";
+}
+
+function normaliseWeatherQueryInput(rawWeather) {
+  if (!rawWeather || typeof rawWeather !== "object") {
+    return [];
+  }
+  if (typeof rawWeather.query === "string") {
+    const trimmed = rawWeather.query.trim();
+    return trimmed ? trimmed.split(/\s+/).filter(Boolean) : [];
+  }
+  if (Array.isArray(rawWeather.query)) {
+    return rawWeather.query.map((value) => String(value || "").trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function alignWeatherQueries(cities, queries) {
+  if (!Array.isArray(queries) || queries.length === 0) {
+    return [];
+  }
+  if (!Array.isArray(cities) || cities.length === 0) {
+    return [];
+  }
+  if (queries.length === 1 && cities.length > 1) {
+    return Array(cities.length).fill(queries[0]);
+  }
+  if (queries.length >= cities.length) {
+    return queries.slice(0, cities.length);
+  }
+  const padded = queries.slice();
+  while (padded.length < cities.length) {
+    padded.push("");
+  }
+  return padded;
 }
 
 function normaliseWeatherSettingsInput(rawWeather) {
@@ -666,6 +897,8 @@ function normaliseWeatherSettingsInput(rawWeather) {
 
   const cityInfo = extractWeatherCity(source);
   const city = cityInfo.value;
+  const apiKey = getWeatherApiKey(rawWeather);
+  const query = normaliseWeatherQueryInput(rawWeather);
   if (!city) {
     const error = new Error("天气城市不能为空。");
     error.expose = true;
@@ -674,7 +907,41 @@ function normaliseWeatherSettingsInput(rawWeather) {
 
   return {
     city: city.split(" ").filter(city => city),
+    apiKey,
+    query,
   };
+}
+
+function normaliseWeatherLocationsValue(input) {
+  if (!input || typeof input !== "object") {
+    return [];
+  }
+  const rawLocations = Array.isArray(input.locations) ? input.locations : [];
+  return rawLocations
+    .map((location) => {
+      if (!location || typeof location !== "object") {
+        return null;
+      }
+      const latitude = Number(location.latitude);
+      const longitude = Number(location.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return null;
+      }
+      const city = typeof location.city === "string" ? location.city.trim() : "";
+      const name = typeof location.name === "string" ? location.name.trim() : "";
+      const id = typeof location.id === "string" ? location.id.trim() : "";
+      if (!city && !name) {
+        return null;
+      }
+      return {
+        city: city || name,
+        name: name || city,
+        latitude,
+        longitude,
+        id,
+      };
+    })
+    .filter(Boolean);
 }
 
 function buildSettingsFromFile(rawSettings) {
@@ -792,6 +1059,11 @@ async function handleDataUpdate(req, res, next) {
       error.expose = true;
       throw error;
     }
+    const weatherLocations = await resolveWeatherLocationsFromSettings(normalisedSettings.weather);
+    normalisedSettings.weather = {
+      ...normalisedSettings.weather,
+      locations: weatherLocations,
+    };
 
     const existing = await readFullData();
     const payload = {
@@ -807,6 +1079,46 @@ async function handleDataUpdate(req, res, next) {
   } catch (error) {
     if (error && error.expose) {
       res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+async function handleWeatherTest(req, res, next) {
+  try {
+    const body = req.body || {};
+    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    const queryList = normaliseWeatherQueryInput({ query: body.query });
+    const query = queryList[0] || "";
+
+    if (!city) {
+      res.status(400).json({ success: false, message: "City name is required." });
+      return;
+    }
+    if (!apiKey) {
+      res.status(400).json({ success: false, message: "Missing QWeather API Key." });
+      return;
+    }
+
+    const location = await geocodeCity(city, apiKey, query);
+    const weather = await fetchQWeatherNowByLocation(location, apiKey);
+
+    res.json({
+      success: true,
+      data: {
+        city: location.name || city,
+        ...weather,
+      },
+    });
+  } catch (error) {
+    if (error && error.expose) {
+      const statusCode =
+        typeof error.statusCode === "number" && error.statusCode >= 400 && error.statusCode < 600
+          ? error.statusCode
+          : 502;
+      res.status(statusCode).json({ success: false, message: error.message });
       return;
     }
     next(error);
@@ -1000,6 +1312,49 @@ function resolveDefaultWeatherConfig() {
   return resolved;
 }
 
+function resolveApiKeyFromWeather(weather) {
+  const fromSettings = getWeatherApiKey(weather);
+  if (fromSettings) {
+    return fromSettings;
+  }
+  const fromEnv = typeof process.env.QWEATHER_API_KEY === "string" ? process.env.QWEATHER_API_KEY.trim() : "";
+  return fromEnv;
+}
+
+async function resolveWeatherLocationsFromSettings(weather) {
+  const apiKey = resolveApiKeyFromWeather(weather);
+  const cities = Array.isArray(weather?.city) ? weather.city : [];
+  const trimmedCities = cities
+    .map((city) => (typeof city === "string" ? city.trim() : ""))
+    .filter(Boolean);
+  const queryList = alignWeatherQueries(trimmedCities, normaliseWeatherQueryInput(weather));
+
+  if (trimmedCities.length === 0) {
+    return [];
+  }
+
+  if (!apiKey) {
+    const error = new Error("Missing QWeather API Key.");
+    error.expose = true;
+    throw error;
+  }
+
+  const locations = await Promise.all(
+    trimmedCities.map(async (city, index) => {
+      const location = await geocodeCity(city, apiKey, queryList[index]);
+      return {
+        city,
+        name: location.name || city,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        id: location.id || "",
+      };
+    })
+  );
+
+  return locations;
+}
+
 function createWeatherError(message, statusCode = 502) {
   const error = new Error(message);
   error.expose = true;
@@ -1032,11 +1387,17 @@ function setCachedGeocode(city, data) {
   });
 }
 
-async function geocodeCity(cityName) {
+async function geocodeCity(cityName, apiKey, queryOverride = "") {
   const city = typeof cityName === "string" ? cityName.trim() : "";
   if (!city) {
-    throw createWeatherError("城市名称无效。", 400);
+    throw createWeatherError("City name is required.", 400);
   }
+  if (!apiKey) {
+    throw createWeatherError("Missing QWeather API Key.", 400);
+  }
+  const rawQuery = typeof queryOverride === "string" ? queryOverride.trim() : "";
+  const querySource = rawQuery || city;
+  const queryCity = normaliseQWeatherCityName(querySource) || querySource;
 
   const cached = getCachedGeocode(city);
   if (cached) {
@@ -1051,30 +1412,30 @@ async function geocodeCity(cityName) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-      url.searchParams.set("name", city);
-      url.searchParams.set("count", "1");
-      url.searchParams.set("language", "zh");
-      url.searchParams.set("format", "json");
+      const url = new URL(QWEATHER_GEO_ENDPOINT);
+      url.searchParams.set("location", queryCity);
+      url.searchParams.set("key", apiKey);
+      url.searchParams.set("number", "1");
 
       const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
-      if (!payload || typeof payload !== "object") {
-        throw createWeatherError("地理编码服务响应异常，请稍后重试。");
+      if (!payload) {
+        throw createWeatherError(`QWeather geocode error: invalid_response (city=${queryCity}).`, 502);
+      }
+      if (payload.code !== "200" || !Array.isArray(payload.location) || payload.location.length === 0) {
+        const code = typeof payload.code === "string" ? payload.code : "invalid_response";
+        throw createWeatherError(`QWeather geocode error: ${code} (city=${queryCity}).`, 502);
       }
 
-      if (!payload.results || !Array.isArray(payload.results) || payload.results.length === 0) {
-        throw createWeatherError(`未找到城市"${city}"的地理位置信息，请检查城市名称。`, 404);
-      }
-
-      const result = payload.results[0];
-      const latitude = Number(result.latitude);
-      const longitude = Number(result.longitude);
+      const result = payload.location[0];
+      const latitude = Number(result.lat);
+      const longitude = Number(result.lon);
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        throw createWeatherError("地理位置信息无效。");
+        throw createWeatherError("Invalid location data.", 502);
       }
 
       const locationData = {
+        id: result.id || "",
         latitude,
         longitude,
         name: result.name || city,
@@ -1093,69 +1454,79 @@ async function geocodeCity(cityName) {
         throw error;
       }
       if (attempt < GEOLOCATION_MAX_RETRIES - 1) {
-        console.warn(`地理编码请求失败（尝试 ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}），将重试...`, error?.message || error);
+        console.warn(`Geocode failed (attempt ${attempt + 1}/${GEOLOCATION_MAX_RETRIES}), retrying...`, error?.message || error);
         continue;
       }
     }
   }
 
   if (lastError && lastError.name === "AbortError") {
-    throw createWeatherError("地理编码服务请求超时，请稍后重试。", 504);
+    throw createWeatherError("Geocode request timed out.", 504);
   }
   if (lastError && lastError.expose) {
     throw lastError;
   }
-  throw createWeatherError("地理编码服务获取失败，请稍后重试。", 502);
+  throw createWeatherError("Failed to resolve city location.", 502);
 }
 
 function getWeatherCacheKey(city) {
   return city.toLowerCase();
 }
 
-async function fetchOpenMeteoWeather(cityName) {
-  const city = typeof cityName === "string" ? cityName.trim() : "";
-  if (!city) {
-    throw createWeatherError("城市名称无效。", 400);
+function getWeatherCacheKeyForLocation(location) {
+  if (location && location.id) {
+    return String(location.id);
+  }
+  return `${location.latitude},${location.longitude}`;
+}
+
+function buildWeatherData(payload) {
+  if (!payload || payload.code !== "200" || typeof payload.now !== "object") {
+    const code = payload && typeof payload.code === "string" ? payload.code : "unknown";
+    throw createWeatherError(`QWeather now error: ${code}.`);
   }
 
-  const cacheKey = getWeatherCacheKey(city);
+  const now = payload.now;
+  const temperature = Number(now.temp);
+  const windspeed = Number(now.windSpeed);
+
+  return {
+    text: typeof now.text === "string" ? now.text : "Unknown",
+    temperature: Number.isFinite(temperature) ? temperature : null,
+    windspeed: Number.isFinite(windspeed) ? windspeed : null,
+    weathercode: now.icon || now.code || null,
+    time: now.obsTime || null,
+  };
+}
+
+async function fetchQWeatherNowByLocation(location, apiKey) {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw createWeatherError("Invalid location data.", 400);
+  }
+  if (!apiKey) {
+    throw createWeatherError("Missing QWeather API Key.", 400);
+  }
+
+  const cacheKey = getWeatherCacheKeyForLocation({
+    id: location?.id,
+    latitude,
+    longitude,
+  });
   const cached = weatherCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_TTL_MS) {
     return cached.data;
   }
 
-  const location = await geocodeCity(city);
-
-  const url = new URL("https://api.open-meteo.com/v1/forecast");
-  url.searchParams.set("latitude", String(location.latitude));
-  url.searchParams.set("longitude", String(location.longitude));
-  url.searchParams.set("current_weather", "true");
-  url.searchParams.set("timezone", "auto");
+  const locationQuery = location?.id ? String(location.id) : `${longitude},${latitude}`;
+  const url = new URL(QWEATHER_NOW_ENDPOINT);
+  url.searchParams.set("location", locationQuery);
+  url.searchParams.set("key", apiKey);
 
   try {
     const payload = await requestWeatherPayload(url, WEATHER_API_TIMEOUT_MS);
-    if (!payload || typeof payload !== "object") {
-      throw createWeatherError("天气服务响应异常，请稍后重试。");
-    }
-
-    if (!payload.current_weather || typeof payload.current_weather !== "object") {
-      throw createWeatherError("天气数据格式异常，请稍后重试。");
-    }
-
-    const current = payload.current_weather;
-    const temperatureValue = Number(current.temperature);
-    const windspeedValue = Number(current.windspeed);
-    const weatherCode = Number(current.weathercode);
-
-    const weatherDescription = getWeatherDescription(weatherCode);
-
-    const weatherData = {
-      text: weatherDescription,
-      temperature: Number.isFinite(temperatureValue) ? temperatureValue : null,
-      windspeed: Number.isFinite(windspeedValue) ? windspeedValue : null,
-      weathercode: Number.isFinite(weatherCode) ? weatherCode : null,
-      time: current.time || null,
-    };
+    const weatherData = buildWeatherData(payload);
 
     weatherCache.set(cacheKey, {
       data: weatherData,
@@ -1165,13 +1536,23 @@ async function fetchOpenMeteoWeather(cityName) {
     return weatherData;
   } catch (error) {
     if (error && error.name === "AbortError") {
-      throw createWeatherError("天气服务请求超时，请稍后重试。", 504);
+      throw createWeatherError("Weather request timed out.", 504);
     }
     if (error && error.expose) {
       throw error;
     }
-    throw createWeatherError("天气服务获取失败，请稍后重试。", 502);
+    throw createWeatherError("Weather request failed.", 502);
   }
+}
+
+async function fetchQWeatherNowByCity(cityName, apiKey, queryOverride = "") {
+  const city = typeof cityName === "string" ? cityName.trim() : "";
+  if (!city) {
+    throw createWeatherError("City name is required.", 400);
+  }
+
+  const location = await geocodeCity(city, apiKey, queryOverride);
+  return fetchQWeatherNowByLocation(location, apiKey);
 }
 
 function getWeatherDescription(code) {
@@ -1211,7 +1592,11 @@ function getWeatherDescription(code) {
 
 async function requestWeatherPayload(url, timeoutMs) {
   if (typeof fetch === "function" && typeof AbortController === "function") {
-    return requestWeatherPayloadWithNativeFetch(url, timeoutMs);
+    const payload = await requestWeatherPayloadWithNativeFetch(url, timeoutMs);
+    if (payload) {
+      return payload;
+    }
+    return requestWeatherPayloadWithNodeHttp(url, timeoutMs);
   }
   return requestWeatherPayloadWithNodeHttp(url, timeoutMs);
 }
@@ -1229,8 +1614,15 @@ async function requestWeatherPayloadWithNativeFetch(url, timeoutMs) {
       signal: controller.signal,
       headers: WEATHER_FETCH_HEADERS,
     });
-    const payload = await response.json().catch(() => null);
-    return payload;
+    const raw = await response.text().catch(() => "");
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (_error) {
+      return null;
+    }
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -1251,21 +1643,54 @@ function requestWeatherPayloadWithNodeHttp(url, timeoutMs) {
     };
 
     const request = transport.request(options, (response) => {
-      let raw = "";
-      response.setEncoding("utf8");
+      const chunks = [];
       response.on("data", (chunk) => {
-        raw += chunk;
+        chunks.push(chunk);
       });
       response.on("end", () => {
-        if (!raw) {
+        if (chunks.length === 0) {
           resolve(null);
           return;
         }
-        try {
-          resolve(JSON.parse(raw));
-        } catch (_error) {
-          resolve(null);
+
+        const buffer = Buffer.concat(chunks);
+        const encoding = response.headers["content-encoding"];
+        const finalize = (payloadBuffer) => {
+          const raw = payloadBuffer.toString("utf8");
+          if (!raw) {
+            resolve(null);
+            return;
+          }
+          try {
+            resolve(JSON.parse(raw));
+          } catch (_error) {
+            resolve(null);
+          }
+        };
+
+        if (encoding && String(encoding).includes("br")) {
+          zlib.brotliDecompress(buffer, (error, decoded) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            finalize(decoded);
+          });
+          return;
         }
+
+        if (encoding && String(encoding).includes("gzip")) {
+          zlib.gunzip(buffer, (error, decoded) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            finalize(decoded);
+          });
+          return;
+        }
+
+        finalize(buffer);
       });
       response.on("error", reject);
     });
@@ -1286,14 +1711,19 @@ function requestWeatherPayloadWithNodeHttp(url, timeoutMs) {
 
 async function resolveWeatherRequestConfig() {
   const fullData = await readFullData();
- const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
- let cities = weather.city;
- if (!Array.isArray(cities)) {
-   cities = [cities || runtimeConfig.weather.defaultCity || DEFAULT_WEATHER_CONFIG.city].filter(Boolean);
- }
- return {
-   city: cities,
- };
+  const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
+  const locations = Array.isArray(weather.locations) ? weather.locations : [];
+  const apiKey = resolveApiKeyFromWeather(weather);
+  let cities = weather.city;
+  if (!Array.isArray(cities)) {
+    cities = [cities || runtimeConfig.weather.defaultCity || DEFAULT_WEATHER_CONFIG.city].filter(Boolean);
+  }
+  return {
+    city: cities,
+    locations,
+    apiKey,
+    query: weather.query || [],
+  };
 }
 
 function createDefaultData() {

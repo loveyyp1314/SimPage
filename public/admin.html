@@ -75,9 +75,21 @@
                   placeholder="例如：北京、上海、深圳"
                 />
               </div>
+              <div class="field">
+                <span>API Key</span>
+                <div class="input-with-button">
+                  <input
+                    type="text"
+                    id="site-weather-api-key"
+                    autocomplete="off"
+                    placeholder="QWeather API Key"
+                  />
+                  <button type="button" class="ghost-button" id="weather-api-test-button">Test</button>
+                </div>
+              </div>
             </div>
             <p class="field-description" id="site-weather-summary">
-              填写城市名称，保存后即可自动获取天气（使用 Open-Meteo 免费服务）。
+              Provide city names and a QWeather API Key to enable live weather.
             </p>
           </div>
 
