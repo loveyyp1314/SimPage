@@ -5,7 +5,22 @@
     "greeting": "",
     "footer": "欢迎来到我的主页",
     "weather": {
-      "city": "北京"
+      "city": [
+        "北京"
+      ],
+      "locations": [
+        {
+          "city": "北京",
+          "name": "北京",
+          "latitude": 39.90499,
+          "longitude": 116.40529,
+          "id": "101010100"
+        }
+      ],
+      "apiKey": "4f9bbe8be21543e8b92f23e2665753c5",
+      "query": [
+        "Beijing"
+      ]
     }
   },
   "apps": [
@@ -95,10 +110,10 @@
     }
   ],
   "stats": {
-    "visitorCount": 0
+    "visitorCount": 15
   },
   "admin": {
-    "passwordHash": "1a968cba0c9a05b2b235aa54a29bc91ef30a5a8a202dc290cf862070e14e259fad87c94f6f33ce1b2b36a75b233ef282b1298ca12fc96894a3abf38ff9e75b8a",
-    "passwordSalt": "fc87045b067a37f3cb01105a91b55b10"
+    "passwordHash": "8175b7eb0a1015e47b040ef43d758212792ac8b0ec7d284f3c877b95d43c04dbecfe772d93e753de3f53bc63f53cc26d3d3f284231f7b3599883a222045b0372",
+    "passwordSalt": "3eca4b266a8532bf82992cc73ed64efc"
   }
 }
