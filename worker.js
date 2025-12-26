@@ -201,6 +201,7 @@ async function handleGetWeather(request, env, ctx) {
     const fullData = await readFullData(env);
     const weatherSettings = normaliseWeatherSettingsValue(fullData.settings?.weather);
     const apiKey = resolveApiKeyFromWeather(weatherSettings, env);
+    const apiHost = resolveQWeatherApiHost(weatherSettings, env);
     const locations = Array.isArray(weatherSettings.locations) ? weatherSettings.locations : [];
 
     if (!apiKey) {
@@ -209,7 +210,7 @@ async function handleGetWeather(request, env, ctx) {
 
     if (locations.length > 0) {
       const weatherPromises = locations.map((location) =>
-        fetchQWeatherNowByLocation(location, apiKey, env, ctx)
+        fetchQWeatherNowByLocation(location, apiKey, env, ctx, apiHost)
           .then((weather) => ({
             ...weather,
             city: location.name || location.city || "",
@@ -241,7 +242,7 @@ async function handleGetWeather(request, env, ctx) {
 
     const queryList = alignWeatherQueries(cities, weatherSettings.query);
     const weatherPromises = cities.map((city, index) =>
-      fetchQWeatherNowByCity(city, apiKey, env, ctx, queryList[index])
+      fetchQWeatherNowByCity(city, apiKey, env, ctx, queryList[index], apiHost)
         .then(weather => ({ ...weather, city, success: true }))
         .catch(error => {
           console.error(`è·ååå¸ ${city} çå¤©æ°ä¿¡æ¯å¤±è´¥ï¼`, error);
@@ -270,7 +271,12 @@ async function handleGetAdminData(request, env) {
   const data = sanitiseData(fullData);
   const weather = normaliseWeatherSettingsValue(fullData.settings?.weather);
   const cityString = Array.isArray(weather.city) ? weather.city.join(" ") : weather.city;
-  data.settings.weather = { city: cityString, apiKey: weather.apiKey || "", query: weather.query || [] };
+  data.settings.weather = {
+    city: cityString,
+    apiKey: weather.apiKey || "",
+    query: weather.query || [],
+    apiHost: weather.apiHost || "",
+  };
   return jsonResponse({ success: true, data });
 }
 
@@ -309,6 +315,7 @@ async function handleWeatherTest(request, env, ctx) {
     const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
     const queryList = normaliseWeatherQueryInput({ query: body?.query });
     const query = queryList[0] || "";
+    const apiHost = normaliseApiHost(typeof body?.apiHost === "string" ? body.apiHost : "") || resolveQWeatherApiHost({}, env);
 
     if (!city) {
       return jsonResponse({ success: false, message: "City name is required." }, 400);
@@ -317,8 +324,8 @@ async function handleWeatherTest(request, env, ctx) {
       return jsonResponse({ success: false, message: "Missing QWeather API Key." }, 400);
     }
 
-    const location = await geocodeCity(city, apiKey, env, ctx, query);
-    const weather = await fetchQWeatherNowByLocation(location, apiKey, env, ctx);
+    const location = await geocodeCity(city, apiKey, env, ctx, query, apiHost);
+    const weather = await fetchQWeatherNowByLocation(location, apiKey, env, ctx, apiHost);
     return jsonResponse({
       success: true,
       data: {
@@ -550,6 +557,7 @@ function normaliseWeatherSettingsValue(input) {
   let value = { ...fallback };
   const locations = normaliseWeatherLocationsValue(input);
   const apiKey = resolveApiKeyFromWeather(input, {});
+  const apiHost = resolveQWeatherApiHost(input, {});
   const query = normaliseWeatherQueryInput(input);
 
   if (input && typeof input === "object") {
@@ -566,6 +574,9 @@ function normaliseWeatherSettingsValue(input) {
 
   if (apiKey) {
     value.apiKey = apiKey;
+  }
+  if (apiHost) {
+    value.apiHost = apiHost;
   }
   if (query.length > 0) {
     value.query = query;
@@ -594,6 +605,34 @@ function resolveApiKeyFromWeather(weather, env) {
   }
   const fromEnv = typeof env?.QWEATHER_API_KEY === "string" ? env.QWEATHER_API_KEY.trim() : "";
   return fromEnv;
+}
+
+function normaliseApiHost(rawHost) {
+  if (typeof rawHost !== "string") {
+    return "";
+  }
+  const trimmed = rawHost.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `https://${trimmed.replace(/\/+$/, "")}`;
+}
+
+function resolveQWeatherApiHost(weather, env) {
+  const fromSettings = normaliseApiHost(typeof weather?.apiHost === "string" ? weather.apiHost : "");
+  if (fromSettings) {
+    return fromSettings;
+  }
+  const fromEnv = normaliseApiHost(typeof env?.QWEATHER_API_HOST === "string" ? env.QWEATHER_API_HOST : "");
+  return fromEnv || QWEATHER_API_HOST_DEFAULT;
+}
+
+function buildQWeatherEndpoint(apiHost, path) {
+  const base = normaliseApiHost(apiHost) || QWEATHER_API_HOST_DEFAULT;
+  return new URL(path, `${base}/`);
 }
 
 function normaliseQWeatherCityName(city) {
@@ -666,11 +705,12 @@ function normaliseWeatherSettingsInput(rawWeather) {
 
     const apiKey = getWeatherApiKey(rawWeather);
     const query = normaliseWeatherQueryInput(rawWeather);
+    const apiHost = normaliseApiHost(typeof rawWeather?.apiHost === "string" ? rawWeather.apiHost : "");
 
   if (cities.length === 0) {
         throw new Error("å¤©æ°åå¸ä¸è½ä¸ºç©ºã");
     }
-  return { city: cities, apiKey, query };
+  return { city: cities, apiKey, query, apiHost };
 }
 
 function normaliseWeatherLocationsValue(input) {
@@ -713,7 +753,7 @@ function createDefaultSettings() {
 }
 
 function createDefaultWeatherSettings() {
-  return { city: [DEFAULT_WEATHER_CONFIG.city], locations: [], apiKey: "", query: [] };
+  return { city: [DEFAULT_WEATHER_CONFIG.city], locations: [], apiKey: "", query: [], apiHost: "" };
 }
 
 async function createDefaultData() {
@@ -829,8 +869,7 @@ const WEATHER_API_TIMEOUT_MS = 5000;
 const GEOLOCATION_MAX_RETRIES = 3;
 const GEOLOCATION_RETRY_DELAY_BASE_MS = 300;
 
-const QWEATHER_GEO_ENDPOINT = "https://jg359c629y.re.qweatherapi.com/geo/v2/city/lookup";
-const QWEATHER_NOW_ENDPOINT = "https://jg359c629y.re.qweatherapi.com/v7/weather/now";
+const QWEATHER_API_HOST_DEFAULT = "https://api.qweather.com";
 const WEATHER_CACHE_TTL_SECONDS = 300;
 const GEO_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const ERROR_CACHE_TTL_SECONDS = 60;
@@ -911,6 +950,7 @@ const QWEATHER_CITY_ALIAS_CODES = Object.freeze({
 
 async function resolveWeatherLocationsFromSettings(weather, env, ctx) {
   const apiKey = resolveApiKeyFromWeather(weather, env);
+  const apiHost = resolveQWeatherApiHost(weather, env);
   const cities = Array.isArray(weather?.city) ? weather.city : [];
   const trimmedCities = cities
     .map((city) => (typeof city === "string" ? city.trim() : ""))
@@ -927,7 +967,7 @@ async function resolveWeatherLocationsFromSettings(weather, env, ctx) {
 
   const locations = await Promise.all(
     trimmedCities.map(async (city, index) => {
-      const location = await geocodeCity(city, apiKey, env, ctx, queryList[index]);
+      const location = await geocodeCity(city, apiKey, env, ctx, queryList[index], apiHost);
       return {
         city,
         name: location.name || city,
@@ -1017,7 +1057,7 @@ function buildWeatherData(payload) {
   };
 }
 
-async function geocodeCity(cityName, apiKey, env, ctx, queryOverride = "") {
+async function geocodeCity(cityName, apiKey, env, ctx, queryOverride = "", apiHost = "") {
   const city = typeof cityName === "string" ? cityName.trim() : "";
   if (!city) {
     throw createWeatherError("City name is required.", 400);
@@ -1029,7 +1069,7 @@ async function geocodeCity(cityName, apiKey, env, ctx, queryOverride = "") {
   const querySource = rawQuery || city;
   const queryCity = normaliseQWeatherCityName(querySource) || querySource;
 
-  const url = new URL(QWEATHER_GEO_ENDPOINT);
+  const url = buildQWeatherEndpoint(apiHost, "/geo/v2/city/lookup");
   url.searchParams.set("location", queryCity);
   url.searchParams.set("key", apiKey);
   url.searchParams.set("number", "1");
@@ -1079,12 +1119,12 @@ async function geocodeCity(cityName, apiKey, env, ctx, queryOverride = "") {
   throw lastError || createWeatherError("Failed to resolve city location.", 502);
 }
 
-async function fetchQWeatherNowByCity(cityName, apiKey, env, ctx, queryOverride = "") {
-  const location = await geocodeCity(cityName, apiKey, env, ctx, queryOverride);
-  return fetchQWeatherNowByLocation(location, apiKey, env, ctx);
+async function fetchQWeatherNowByCity(cityName, apiKey, env, ctx, queryOverride = "", apiHost = "") {
+  const location = await geocodeCity(cityName, apiKey, env, ctx, queryOverride, apiHost);
+  return fetchQWeatherNowByLocation(location, apiKey, env, ctx, apiHost);
 }
 
-async function fetchQWeatherNowByLocation(location, apiKey, env, ctx) {
+async function fetchQWeatherNowByLocation(location, apiKey, env, ctx, apiHost = "") {
   const latitude = Number(location?.latitude);
   const longitude = Number(location?.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -1095,7 +1135,7 @@ async function fetchQWeatherNowByLocation(location, apiKey, env, ctx) {
   }
 
   const locationQuery = location?.id ? String(location.id) : `${longitude},${latitude}`;
-  const url = new URL(QWEATHER_NOW_ENDPOINT);
+  const url = buildQWeatherEndpoint(apiHost, "/v7/weather/now");
   url.searchParams.set("location", locationQuery);
   url.searchParams.set("key", apiKey);
 
