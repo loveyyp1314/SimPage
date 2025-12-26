@@ -36,6 +36,7 @@ const siteFooterInput = document.getElementById("site-footer-content");
 const siteFooterPreview = document.getElementById("site-footer-preview");
 const siteWeatherCityInput = document.getElementById("site-weather-city");
 const siteWeatherApiKeyInput = document.getElementById("site-weather-api-key");
+const siteWeatherApiHostInput = document.getElementById("site-weather-api-host");
 const weatherApiTestButton = document.getElementById("weather-api-test-button");
 const siteWeatherSummary = document.getElementById("site-weather-summary");
 const categorySuggestions = document.getElementById("category-suggestions");
@@ -90,7 +91,8 @@ const BACK_TO_TOP_THRESHOLD = 320;
 const DEFAULT_WEATHER_SETTINGS = {
   city: "Beijing",
   apiKey: "",
-  query: []
+  query: [],
+  apiHost: "api.qweather.com"
 };
 
 const QWEATHER_CITY_ALIAS_CODES = {
@@ -178,6 +180,20 @@ function normaliseWeatherQueryValue(rawQuery) {
     return rawQuery.map((value) => String(value || "").trim()).filter(Boolean);
   }
   return [];
+}
+
+function normaliseApiHostInput(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `https://${trimmed.replace(/\/+$/, "")}`;
 }
 
 function shouldIncludeWeatherQuery(queryTokens) {
@@ -309,6 +325,7 @@ function createDefaultWeatherSettings() {
     city: DEFAULT_WEATHER_SETTINGS.city,
     apiKey: DEFAULT_WEATHER_SETTINGS.apiKey,
     query: Array.isArray(DEFAULT_WEATHER_SETTINGS.query) ? [...DEFAULT_WEATHER_SETTINGS.query] : [],
+    apiHost: DEFAULT_WEATHER_SETTINGS.apiHost,
   };
 }
 
@@ -345,6 +362,12 @@ function normaliseWeatherSettingsIncoming(raw) {
   if (typeof raw.apiKey === "string" && raw.apiKey.trim()) {
     weather.apiKey = raw.apiKey.trim();
   }
+  if (typeof raw.apiHost === "string") {
+    const host = normaliseApiHostInput(raw.apiHost);
+    if (host) {
+      weather.apiHost = host;
+    }
+  }
   if (raw.query !== undefined) {
     const queryTokens = normaliseWeatherQueryValue(raw.query);
     if (queryTokens.length > 0) {
@@ -365,6 +388,7 @@ function collectWeatherSettingsFromInputs(previous = state.settings.weather) {
 
   const cityRaw = siteWeatherCityInput ? siteWeatherCityInput.value : "";
   const apiKeyRaw = siteWeatherApiKeyInput ? siteWeatherApiKeyInput.value : "";
+  const apiHostRaw = siteWeatherApiHostInput ? siteWeatherApiHostInput.value : "";
   const cityTokens = splitWeatherCityInput(cityRaw);
   const queryTokens = buildWeatherQueryTokens(cityTokens);
 
@@ -373,6 +397,7 @@ function collectWeatherSettingsFromInputs(previous = state.settings.weather) {
     city: cityRaw.trim(),
     apiKey: apiKeyRaw.trim(),
     query: queryTokens,
+    apiHost: normaliseApiHostInput(apiHostRaw),
   };
 }
 
@@ -452,6 +477,7 @@ async function handleWeatherApiTest() {
 
   const city = siteWeatherCityInput ? siteWeatherCityInput.value.trim() : "";
   const apiKey = siteWeatherApiKeyInput ? siteWeatherApiKeyInput.value.trim() : "";
+  const apiHost = siteWeatherApiHostInput ? siteWeatherApiHostInput.value.trim() : "";
   const cityTokens = splitWeatherCityInput(city);
   const queryTokens = buildWeatherQueryTokens(cityTokens);
 
@@ -472,6 +498,9 @@ async function handleWeatherApiTest() {
     const requestPayload = { city, apiKey };
     if (shouldIncludeWeatherQuery(queryTokens)) {
       requestPayload.query = queryTokens;
+    }
+    if (apiHost) {
+      requestPayload.apiHost = apiHost;
     }
 
     const response = await fetch("/api/admin/weather-test", {
@@ -520,6 +549,7 @@ function validateWeatherSettings(weather) {
   const resolved = weather && typeof weather === "object" ? weather : createDefaultWeatherSettings();
   const city = typeof resolved.city === "string" ? resolved.city.trim() : "";
   const apiKey = typeof resolved.apiKey === "string" ? resolved.apiKey.trim() : "";
+  const apiHost = normaliseApiHostInput(typeof resolved.apiHost === "string" ? resolved.apiHost : "");
   const queryTokens = buildWeatherQueryTokens(splitWeatherCityInput(city));
   if (!city) {
     return { valid: false, message: "Please enter a city name.", focus: siteWeatherCityInput };
@@ -533,6 +563,7 @@ function validateWeatherSettings(weather) {
       city,
       apiKey,
       query: queryTokens,
+      apiHost: apiHost || DEFAULT_WEATHER_SETTINGS.apiHost,
     },
   };
 }
@@ -540,8 +571,9 @@ function validateWeatherSettings(weather) {
 function buildWeatherPayload(weather) {
   const city = typeof weather?.city === "string" ? weather.city.trim() : "";
   const apiKey = typeof weather?.apiKey === "string" ? weather.apiKey.trim() : "";
+  const apiHost = normaliseApiHostInput(typeof weather?.apiHost === "string" ? weather.apiHost : "");
   const queryTokens = buildWeatherQueryTokens(splitWeatherCityInput(city));
-  const payload = { city, apiKey };
+  const payload = { city, apiKey, apiHost: apiHost || DEFAULT_WEATHER_SETTINGS.apiHost };
   if (shouldIncludeWeatherQuery(queryTokens)) {
     payload.query = queryTokens;
   }
@@ -573,6 +605,9 @@ function applySettingsToInputs(settings) {
   }
   if (siteWeatherApiKeyInput) {
     siteWeatherApiKeyInput.value = normalisedWeather.apiKey || "";
+  }
+  if (siteWeatherApiHostInput) {
+    siteWeatherApiHostInput.value = normalisedWeather.apiHost || "";
   }
 
   updateWeatherSummary(normalisedWeather);
@@ -1179,6 +1214,7 @@ async function saveChanges() {
     city: weatherValidation.value.city,
     apiKey: weatherValidation.value.apiKey,
     query: weatherValidation.value.query,
+    apiHost: weatherValidation.value.apiHost,
   };
 
   if (siteWeatherCityInput) {
